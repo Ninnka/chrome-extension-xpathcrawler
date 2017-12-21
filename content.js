@@ -32,12 +32,23 @@ xh.X_KEYCODE = 88; // * x字符
 xh.CONTAIN_SLI = true; // * 限制是否使用元素在同级的序号作为匹配的关键词
 xh.CLASS_LIMIT = 1; // * 限制匹配关键词中所使用的class的个数
 
-xh.docuBody = null;
-xh.divTmp = null;
-xh.popupSelect = null;
-xh.popupOtherInput = null;
-xh.popupTextareaXpath = null;
-xh.popupTextareaResult = null;
+xh.docuBody = null; // * body对象
+xh.divTmp = null; // * 弹窗对象
+xh.popupSelect = null; // * 弹窗里的select
+xh.popupOtherInput = null; // * 弹窗里的其他输入框
+xh.popupTextareaXpath = null; // * 弹窗里的xpath框
+xh.popupTextareaResult = null; // * 弹窗里的result框
+// * popup中的确认和取消按钮
+xh.popupButtonConfirm = null;
+xh.popupButtonCancel = null;
+
+xh.popupSelectPreset = [
+  '预设标题1',
+  '预设标题2'
+]
+
+xh.xpathCol = {}; // * 保存的xpath合集
+
 
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
   var p = primaryEl, s = siblingEl;
@@ -219,6 +230,16 @@ xh.clearHighlights = function() {
   }
 };
 
+xh.confirmSavePath = function () {
+  console.log('confirmSavePath', arguments);
+  /**
+   * TODOS:
+   * 保存path
+   * 关闭弹窗
+   * 关闭高亮
+   */
+}
+
 // * 计算当前元素的位置
 xh.calcTargetElePos = function (e) {
   // console.log('calcTargetElePos', e);
@@ -295,7 +316,7 @@ xh.fixingPopup = function (toggle, param) {
           #c-input-box {
             position: fixed;
             width: 400px;
-            height: 400px;
+            min-height: 400px;
             // background-color: red;
             display: ${isShow};
             top: ${xhBarInstance.popupPos.y}px;
@@ -312,18 +333,43 @@ xh.fixingPopup = function (toggle, param) {
             width: 80%;
             height: 40px;
             border: 1px solid #bbb;
+            margin-bottom: 10px;
           }
           #c-input-box #popupOtherInput {
             width: 80%;
-            margin: 20px auto;
+            margin: 10px auto;
             box-sizing: border-box;
           }
           #c-input-box textarea {
             resize: none;
             width: 80%;
-            margin: 10px auto;
-            height: 80px;
+            margin: 0 auto 10px;
+            height: 60px;
             overflow-y: auto;
+            box-sizing: border-box;
+          }
+          #c-input-box .c-buttons {
+            width: 80%;
+            height: 40px;
+            margin: auto;
+            display: flex;
+            justify-content: center;
+          }
+          .c-buttons div {
+            border-radius: 8px;
+            flex-grow: 0;
+            flex-shrink: 1;
+            width: 100px;
+            height: 100%;
+            color: #ffffff;
+            line-height: 40px;
+            margin: 0 30px;
+          }
+          .c-buttons div:nth-child(1) {
+            background-color: #565656;
+          }
+          .c-buttons div:nth-child(2) {
+            background-color: #565656;
           }
         </style>
       `
@@ -332,8 +378,8 @@ xh.fixingPopup = function (toggle, param) {
         <div id="c-input-box">
           <div class="select-input--wrapper">
             <select name="symbol" id="symbomSelect">
-              <option value="1">此处为预选标题1</option>
-              <option value="2">此处为预选标题2</option>
+              <option value="0">此处为预选标题1</option>
+              <option value="1">此处为预选标题2</option>
               <option value="-1">其他</option>
             </select>
             <input type="text" id="popupOtherInput" placeholder="请输入自定义的标题" style="display: none;">
@@ -343,10 +389,16 @@ xh.fixingPopup = function (toggle, param) {
             <div class="c-textarea--wrapper wrapper--textarea-result">
               <textarea id="popupTextareaResult" readonly="true"></textarea>
             </div>
+            <div class="c-buttons">
+              <div id="popupButtonCancel">取消</div>
+              <div id="popupButtonConfirm">确定</div>
+            </div>
           </div>
         </div>
       `;
     xh.divTmp.innerHTML = popupDomS;
+
+    xh.openCInputBox();
 
     // * 保存popup的select和添加事件
     xh.popupSelect = xh.divTmp.querySelector('#symbomSelect');
@@ -362,6 +414,18 @@ xh.fixingPopup = function (toggle, param) {
 
     xh.popupTextareaXpath.value = toggle ? xpath : '';
     xh.popupTextareaResult.value = toggle ? resultStr : '';
+
+    // * 保存按钮
+    xh.popupButtonCancel = xh.divTmp.querySelector('#popupButtonCancel')
+    xh.popupButtonConfirm = xh.divTmp.querySelector('#popupButtonConfirm')
+
+    xh.popupButtonCancel.addEventListener('click', xh.closeCInputBox);
+    xh.popupButtonConfirm.addEventListener('click', () => {
+      xh.confirmSavePath({
+        title: xh.popupSelect.value !== -1 ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value.trim(),
+        xpath
+      });
+    });
     
     if (xh.docuBody === null) {
       xh.docuBody = document.querySelector('body');
