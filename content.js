@@ -49,6 +49,32 @@ xh.popupSelectPreset = [
 
 xh.xpathCol = {}; // * 保存的xpath合集
 
+xh.hintInsS = `
+  <style>
+    .c-hint--wrapper {
+      position: fixed;
+      width: 100%;
+      min-height: 40px;
+      color: #ffffff;
+      top: 350px;
+      left: 0;
+      text-align: center;
+    }
+    .c-hint {
+      display: inline-block;
+      vertical-align: middle;
+      min-width: 200px;
+      line-height: 40px;
+      background-color: #565656;
+    }
+  </style>
+  <div class="c-hint--wrapper">
+    <div class="c-hint">保存成功</div>
+  </div>
+`
+xh.hintIns = null; // * 操作提示实例
+
+xh.hintDelayIns = null; // * 提示的定时器
 
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
   var p = primaryEl, s = siblingEl;
@@ -230,14 +256,57 @@ xh.clearHighlights = function() {
   }
 };
 
-xh.confirmSavePath = function () {
-  console.log('confirmSavePath', arguments);
+xh.createHint = function () {
+  xh.hintIns = document.createElement('div');
+  xh.hintIns.innerHTML = xh.hintInsS;
+  document.body.appendChild(xh.hintIns);
+}
+
+xh.showHint = function () {
+  xh.hintIns && (xh.hintIns.style.display = 'block');
+}
+
+xh.hideHint = function () {
+  xh.hintIns && (xh.hintIns.style.display = 'none');
+}
+
+xh.closeHintDelay = function (delay) {
+  if (xh.hintDelayIns) {
+    window.clearTimeout(xh.hintDelayIns);
+  }
+  xh.hintDelayIns = setTimeout(() => {
+    xh.hideHint();
+    xh.hintDelayIns = null;
+  }, delay);
+}
+
+xh.confirmSavePath = function (data) {
+  console.log('confirmSavePath', data);
   /**
    * TODOS:
    * 保存path
    * 关闭弹窗
    * 关闭高亮
+   * 显示提示
    */
+  let { title, xpath } = data;
+  if (xh.xpathCol[title]) {
+    xh.xpathCol[title].push(xpath);
+  } else {
+    xh.xpathCol[title] = [];
+    xh.xpathCol[title].push(xpath);
+  }
+  // console.log('xh.xpathCol', xh.xpathCol);
+  xh.closeCInputBox();
+  xh.clearHighlights();
+  if (xh.hintIns) {
+    xh.showHint();
+    xh.closeHintDelay(2500);
+  } else {
+    xh.createHint();
+    xh.showHint();
+    xh.closeHintDelay(2500);
+  }
 }
 
 // * 计算当前元素的位置
@@ -421,9 +490,10 @@ xh.fixingPopup = function (toggle, param) {
 
     xh.popupButtonCancel.addEventListener('click', xh.closeCInputBox);
     xh.popupButtonConfirm.addEventListener('click', () => {
+      let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
       xh.confirmSavePath({
-        title: xh.popupSelect.value !== -1 ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value.trim(),
-        xpath
+        title: title,
+        xpath: xpath
       });
     });
     
