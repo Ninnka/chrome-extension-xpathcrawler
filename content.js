@@ -27,8 +27,17 @@ var xh = xh || {};
 ////////////////////////////////////////////////////////////
 // Generic helper functions and constants
 
-xh.SHIFT_KEYCODE = 16;
-xh.X_KEYCODE = 88;
+xh.SHIFT_KEYCODE = 16; // * shift字符
+xh.X_KEYCODE = 88; // * x字符
+xh.CONTAIN_SLI = true; // * 限制是否使用元素在同级的序号作为匹配的关键词
+xh.CLASS_LIMIT = 1; // * 限制匹配关键词中所使用的class的个数
+
+xh.docuBody = null;
+xh.divTmp = null;
+xh.popupSelect = null;
+xh.popupOtherInput = null;
+xh.popupTextareaXpath = null;
+xh.popupTextareaResult = null;
 
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
   var p = primaryEl, s = siblingEl;
@@ -56,6 +65,7 @@ xh.getElementIndex = function(el) {
   return 0;
 };
 
+// * 创建xpath
 xh.makeQueryForElement = function(el) {
   var query = '';
   for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
@@ -86,7 +96,7 @@ xh.highlight = function(els) {
 
 // * 转为xpath为css规则
 xh.splitQuery = function (query) {
-  console.log('splitQuery');
+  // console.log('splitQuery');
   if (!query) {
     return;
   }
@@ -110,27 +120,37 @@ xh.splitQuery = function (query) {
   }
 }
 
+// * 判断是否有序号
+xh.checkChildOrder = function (str) {
+  const regNum = /\[\d\]/g;
+  // if (!xh.CONTAIN_SLI) {
+  return regNum.test(str);
+  // }
+}
+
 // * 正则转换xpath为css规则
 xh.regDelimiter = function (ele) {
-  console.log('regDelimiter ele', ele);
+  // console.log('regDelimiter ele', ele);
   let res = '';
   const reg = /(\[[^\[]+\])/g;
   let regRes = reg.exec(ele);
-  let regNum = /\[\d\]/g;
+  
   while (regRes && regRes.lastIndex !== 0) {
     let tmpS = regRes[1];
-    if (tmpS.indexOf('=') !== -1 && xh.withoutExcludeKey(tmpS) && !regNum.test(tmpS)) {
+    if (tmpS.indexOf('=') !== -1 && xh.withoutExcludeKey(tmpS) && !xh.checkChildOrder(tmpS)) {
       let tmpSR = tmpS.replace('@', '');
       res = res + tmpSR.trim();
-      console.log('tmp res', res);
+      // console.log('tmp res', res);
     } else if (tmpS.indexOf('@class') !== -1) {
       let tmpSR = tmpS.replace('@', '');
       let tmpSRClass = tmpSR.substring(tmpSR.indexOf("'") + 1, tmpSR.lastIndexOf("'"));
-      console.log('tmpSRClass', tmpSRClass);
+      // console.log('tmpSRClass', tmpSRClass);
       let tmpSRArr = tmpSRClass.split(' ');
       // res = res + tmpSR.trim();
       res = res + "[class*='" + tmpSRArr[0] + "']";
-      console.log('tmp res class pattern', res);
+      // console.log('tmp res class pattern', res);
+    } else if (xh.checkChildOrder(tmpS) && xh.CONTAIN_SLI) {
+      res = res + ':nth-child('+ tmpS.substring(1, tmpS.length - 1) + ')';
     }
     regRes = reg.exec(ele);
   }
@@ -146,6 +166,18 @@ xh.withoutExcludeKey = function (ele) {
     }
   }
   return true;
+}
+
+// * 判断父级是否有a标签
+xh.checkParentHref = function (e) {
+  const parent = e.target ? e.target.parentNode : e.parentNode;
+  if (parent.tagName === 'A'
+  && parent.childNodes
+  && parent.childNodes.length === 1) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 // * 需要过滤的列表
@@ -186,6 +218,167 @@ xh.clearHighlights = function() {
     els[i].classList.remove('xh-highlight');
   }
 };
+
+// * 计算当前元素的位置
+xh.calcTargetElePos = function (e) {
+  // console.log('calcTargetElePos', e);
+  xhBarInstance.currElPos = {
+    x: e.clientX,
+    y: e.clientY
+  };
+  // console.log('xhBarInstance.currElPos', xhBarInstance.currElPos);
+}
+
+// * 计算元素周围可用的空间
+xh.calcEleRoundPosAvalid = function (e) {
+  const documentW = window.innerWidth;
+  const documentH = window.innerHeight;
+  // console.log('documentW', documentW);
+  // console.log('documentH', documentH);
+  const x = xhBarInstance.currElPos.x;
+  const y = xhBarInstance.currElPos.y;
+  // * 判断上方的位置
+  if (y > 420 + 90) {
+    xhBarInstance.popupPos = {
+      x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
+      y: y - 420
+    }
+  } else if ((y > 420 && y < 420 + 90) || documentH - y > 420) {
+    xhBarInstance.popupPos = {
+      x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
+      y: y + 30
+    }
+  } else {
+    xhBarInstance.popupPos = {
+      x: (documentW - x) / 2,
+      y: (documentH - y) / 2
+    }
+  }
+  // console.log('xhBarInstance.popupPos', xhBarInstance.popupPos);
+}
+
+xh.popupSelectChange = function (e) {
+  // console.log('popupSelectChange', e);
+  const eV = e.target.value;
+  if (eV === '-1' || eV === -1) {
+    xh.popupOtherInput && (xh.popupOtherInput.style.display = 'block');
+  } else {
+    xh.popupOtherInput && (xh.popupOtherInput.style.display = 'none');
+  }
+}
+
+xh.popupOtherInputChange = function (e) {
+  // console.log('popupOtherInputChange', e);
+}
+
+xh.closeCInputBox = function () {
+  xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'none');
+}
+
+xh.openCInputBox = function () {
+  xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'block');
+}
+
+xh.fixingPopup = function (toggle, param) {
+  let xpath = param && param.xpath ? param.xpath : '';
+  let resultStr = param && param.resultStr ? param.resultStr : '';
+
+  if (xh.docuBody) {
+    xh.docuBody.removeChild(xh.divTmp);
+  }
+  if (xhBarInstance.popupPos) {
+    let isShow = toggle ? 'block' : 'none';
+    xh.divTmp = document.createElement('div');
+    let popupDomS = 
+      `
+        <style>
+          #c-input-box {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            // background-color: red;
+            display: ${isShow};
+            top: ${xhBarInstance.popupPos.y}px;
+            left: ${xhBarInstance.popupPos.x}px;
+            z-index: 99999;
+            text-align: center;
+            box-sizing: border-box;
+            padding: 12px;
+            box-shadow: 0px 0px 0 2px #bbb;
+            border: 1px solid #bbb;
+            background-color: #FAFAFA;
+          }
+          #c-input-box select {
+            width: 80%;
+            height: 40px;
+            border: 1px solid #bbb;
+          }
+          #c-input-box #popupOtherInput {
+            width: 80%;
+            margin: 20px auto;
+            box-sizing: border-box;
+          }
+          #c-input-box textarea {
+            resize: none;
+            width: 80%;
+            margin: 10px auto;
+            height: 80px;
+            overflow-y: auto;
+          }
+        </style>
+      `
+       +
+      `
+        <div id="c-input-box">
+          <div class="select-input--wrapper">
+            <select name="symbol" id="symbomSelect">
+              <option value="1">此处为预选标题1</option>
+              <option value="2">此处为预选标题2</option>
+              <option value="-1">其他</option>
+            </select>
+            <input type="text" id="popupOtherInput" placeholder="请输入自定义的标题" style="display: none;">
+            <div class="c-textarea--wrapper wrapper--textarea-xpath">
+              <textarea id="popupTextareaXpath" readonly="true"></textarea>
+            </div>
+            <div class="c-textarea--wrapper wrapper--textarea-result">
+              <textarea id="popupTextareaResult" readonly="true"></textarea>
+            </div>
+          </div>
+        </div>
+      `;
+    xh.divTmp.innerHTML = popupDomS;
+
+    // * 保存popup的select和添加事件
+    xh.popupSelect = xh.divTmp.querySelector('#symbomSelect');
+    xh.popupSelect && xh.popupSelect.addEventListener('change', xh.popupSelectChange);
+
+    // * 保存其他的输入框和添加事件
+    xh.popupOtherInput = xh.divTmp.querySelector('#popupOtherInput');
+    xh.popupOtherInput && xh.popupOtherInput.addEventListener('change', xh.popupOtherInputChange)
+
+    // * 保存文本框
+    xh.popupTextareaXpath = xh.divTmp.querySelector('#popupTextareaXpath');
+    xh.popupTextareaResult = xh.divTmp.querySelector('#popupTextareaResult');
+
+    xh.popupTextareaXpath.value = toggle ? xpath : '';
+    xh.popupTextareaResult.value = toggle ? resultStr : '';
+    
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(xh.divTmp);
+
+    // chrome.runtime.sendMessage({
+    //   type: 'fixingPopup',
+    //   query: {
+    //     show: true,
+    //     x: xhBarInstance.popupPos.x,
+    //     y: xhBarInstance.popupPos.y
+    //   },
+    //   results: null
+    // });
+  }
+}
 
 // Returns [values, nodeCount]. Highlights result nodes, if applicable. Assumes
 // no nodes are currently highlighted.
@@ -240,14 +433,22 @@ xh.evaluateQuery = function(query) {
   }
 
   xh.highlight(toHighlight);
+
+  // * 进行全局匹配
   xh.splitQuery(query);
+  
+  // * 发送消息
+  xh.fixingPopup(true, {
+    xpath: query,
+    resultStr: str
+  });
   return [str, nodeCount];
 };
 
 ////////////////////////////////////////////////////////////
 // xh.Bar class definition
 
-xh.Bar = function() {
+xh.Bar = function () {
   this.boundHandleRequest_ = this.handleRequest_.bind(this);
   this.boundMouseMove_ = this.mouseMove_.bind(this);
   this.boundKeyDown_ = this.keyDown_.bind(this);
@@ -256,6 +457,8 @@ xh.Bar = function() {
 
   this.inDOM_ = false;
   this.currEl_ = null;
+  this.currElPos = null;
+  this.popupPos = null;
 
   this.barFrame_ = document.createElement('iframe');
   this.barFrame_.src = chrome.runtime.getURL('bar.html');
@@ -293,6 +496,8 @@ xh.Bar.prototype.showBar_ = function() {
     document.addEventListener('mousemove', that.boundMouseMove_);
     // * 添加点击事件
     document.addEventListener('click', that.boundMouseClick);
+    // * 打开弹框
+    xh.openCInputBox();
     that.updateBar_(true);
   }
   if (!this.inDOM_) {
@@ -309,6 +514,8 @@ xh.Bar.prototype.hideBar_ = function() {
     document.removeEventListener('mousemove', that.boundMouseMove_);
     // * 移除点击事件
     document.removeEventListener('click', that.boundMouseClick);
+    // * 关闭弹框
+    xh.closeCInputBox();
     xh.clearHighlights();
   }
   window.setTimeout(impl, 0);
@@ -367,11 +574,32 @@ xh.Bar.prototype.keyDown_ = function(e) {
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
-  console.log('e', e);
+  // console.log('e', e);
+  let flagPopup = false;
+  let domPath = e.path;
+  let domPathL = domPath.length;
+  for (let i = 0; i < domPathL; i++) {
+    // console.log('domPath[i].id', domPath[i].id)
+    if (domPath[i] && domPath[i].id && domPath[i].id.indexOf('c-input-box') !== -1) {
+      e.stopPropagation();
+      flagPopup = true;
+      break;
+    }
+  }
+  // e.preventDefault();
   if (e.target.tagName === 'A') {
     e.preventDefault();
+  } else if (xh.checkParentHref(e)) {
+    e.preventDefault();
+  } else if (xh.checkParentHref(e.target.parentNode)) {
+    e.preventDefault();
   }
-  if (this.currEl_) {
+  console.log('flagPopup', flagPopup);
+  if (this.currEl_ && !flagPopup) {
+    // * 计算当前元素的位置与周围可用的空间
+    xh.calcTargetElePos(e);
+    xh.calcEleRoundPosAvalid();
+    // * 更新显示的结果，获取xpath
     this.updateQueryAndBar_(this.currEl_);
   }
 }
