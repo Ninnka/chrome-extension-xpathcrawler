@@ -84,6 +84,102 @@ xh.highlight = function(els) {
   }
 };
 
+// * 转为xpath为css规则
+xh.splitQuery = function (query) {
+  console.log('splitQuery');
+  if (!query) {
+    return;
+  }
+  console.log('query', query);
+  var queryArr = query.split('/');
+  var newQuery = '';
+  queryArr.forEach(function (ele, index, arr) {
+    if(ele.indexOf('[') === -1 && xh.withoutExcludeKey(ele)) {
+      newQuery = newQuery + ' ' + ele.trim();
+    } else if (ele !== '' && ele.indexOf('[') !== -1) {
+      let withoutDel = ele.substring(0, ele.indexOf('['));
+      let delStringOnly = ele.substring(ele.indexOf('['));
+      let splitRes = xh.regDelimiter(delStringOnly.trim());
+      newQuery = newQuery + ' ' + withoutDel + splitRes;
+    }
+  });
+  console.log('newQueryFinally', newQuery.trim());
+  if (newQuery) {
+    var matchDomArr = document.querySelectorAll(newQuery);
+    xh.highlight(matchDomArr);
+  }
+}
+
+// * 正则转换xpath为css规则
+xh.regDelimiter = function (ele) {
+  console.log('regDelimiter ele', ele);
+  let res = '';
+  const reg = /(\[[^\[]+\])/g;
+  let regRes = reg.exec(ele);
+  let regNum = /\[\d\]/g;
+  while (regRes && regRes.lastIndex !== 0) {
+    let tmpS = regRes[1];
+    if (tmpS.indexOf('=') !== -1 && xh.withoutExcludeKey(tmpS) && !regNum.test(tmpS)) {
+      let tmpSR = tmpS.replace('@', '');
+      res = res + tmpSR.trim();
+      console.log('tmp res', res);
+    } else if (tmpS.indexOf('@class') !== -1) {
+      let tmpSR = tmpS.replace('@', '');
+      let tmpSRClass = tmpSR.substring(tmpSR.indexOf("'") + 1, tmpSR.lastIndexOf("'"));
+      console.log('tmpSRClass', tmpSRClass);
+      let tmpSRArr = tmpSRClass.split(' ');
+      // res = res + tmpSR.trim();
+      res = res + "[class*='" + tmpSRArr[0] + "']";
+      console.log('tmp res class pattern', res);
+    }
+    regRes = reg.exec(ele);
+  }
+  return res;
+}
+
+// * 确认是否有需要过滤的关键字
+xh.withoutExcludeKey = function (ele) {
+  let length = xh.keyList.length;
+  for (let i = 0; i < length; i++) {
+    if (ele.indexOf(xh.keyList[i]) !== -1) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// * 需要过滤的列表
+xh.keyList = [
+  '@src',
+  'data-',
+  'src',
+  'class'
+];
+
+xh.addPrevent = (event) => {
+  // event.preventDefault();
+  console.log('event', event);
+  if (event.target.tagName === 'A') {
+    event.preventDefault();
+  }
+}
+
+xh.preventHref = () => {
+  // let ahrefs = document.querySelectorAll('a');
+  // ahrefs.forEach(function (ele, index, arr) {
+  //   ele.addEventListener('click', xh.addPrevent);
+  // });
+  document.addEventListener('click', xh.addPrevent);
+}
+
+xh.unPreventHref = () => {
+  // let ahrefs = document.querySelectorAll('a');
+  // ahrefs.forEach(function (ele, index, arr) {
+  //   ele.removeEventListener('click', xh.addPrevent);
+  // });
+  document.removeEventListener('click', xh.addPrevent);
+}
+
 xh.clearHighlights = function() {
   var els = document.querySelectorAll('.xh-highlight');
   for (var i = 0, l = els.length; i < l; i++) {
@@ -100,7 +196,7 @@ xh.evaluateQuery = function(query) {
   var toHighlight = [];
 
   try {
-    xpathResult = document.evaluate(query, document, null,
+    xpathResult = document.evaluate(query, document.body, null,
                                     XPathResult.ANY_TYPE, null);
   } catch (e) {
     str = '[INVALID XPATH EXPRESSION]';
@@ -144,6 +240,7 @@ xh.evaluateQuery = function(query) {
   }
 
   xh.highlight(toHighlight);
+  xh.splitQuery(query);
   return [str, nodeCount];
 };
 
@@ -154,7 +251,7 @@ xh.Bar = function() {
   this.boundHandleRequest_ = this.handleRequest_.bind(this);
   this.boundMouseMove_ = this.mouseMove_.bind(this);
   this.boundKeyDown_ = this.keyDown_.bind(this);
-  // * 绑定点击
+  // * 绑定点击方法
   this.boundMouseClick = this.mouseClick_.bind(this);
 
   this.inDOM_ = false;
@@ -167,8 +264,6 @@ xh.Bar = function() {
   this.barFrame_.classList.add('hidden');
 
   document.addEventListener('keydown', this.boundKeyDown_);
-  // * 添加点击事件
-  document.addEventListener('click', this.boundMouseClick);
   chrome.runtime.onMessage.addListener(this.boundHandleRequest_);
 };
 
@@ -196,6 +291,8 @@ xh.Bar.prototype.showBar_ = function() {
   function impl() {
     that.barFrame_.classList.remove('hidden');
     document.addEventListener('mousemove', that.boundMouseMove_);
+    // * 添加点击事件
+    document.addEventListener('click', that.boundMouseClick);
     that.updateBar_(true);
   }
   if (!this.inDOM_) {
@@ -210,6 +307,8 @@ xh.Bar.prototype.hideBar_ = function() {
   function impl() {
     that.barFrame_.classList.add('hidden');
     document.removeEventListener('mousemove', that.boundMouseMove_);
+    // * 移除点击事件
+    document.removeEventListener('click', that.boundMouseClick);
     xh.clearHighlights();
   }
   window.setTimeout(impl, 0);
@@ -218,8 +317,10 @@ xh.Bar.prototype.hideBar_ = function() {
 xh.Bar.prototype.toggleBar_ = function() {
   if (this.hidden_()) {
     this.showBar_();
+    // xh.preventHref();
   } else {
     this.hideBar_();
+    // xh.unPreventHref();
   }
 };
 
@@ -233,6 +334,7 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     this.barFrame_.classList.toggle('bottom');
   } else if (request.type === 'hideBar') {
     this.hideBar_();
+    // xh.unPreventHref();
     window.focus();
   } else if (request.type === 'toggleBar') {
     this.toggleBar_();
@@ -265,6 +367,10 @@ xh.Bar.prototype.keyDown_ = function(e) {
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
+  console.log('e', e);
+  if (e.target.tagName === 'A') {
+    e.preventDefault();
+  }
   if (this.currEl_) {
     this.updateQueryAndBar_(this.currEl_);
   }
@@ -276,12 +382,3 @@ xh.Bar.prototype.mouseClick_ = function (e) {
 if (location.href.indexOf('acid3.acidtests.org') === -1) {
   window.xhBarInstance = new xh.Bar();
 }
-
-// var ahrefs = document.querySelectorAll('a');
-// ahrefs.forEach(function (ele, index, arr) {
-//   console.log('ele', ele);
-//   ele.addEventListener('click', function (event) {
-//     event.preventDefault();
-//     console.log('event', event);
-//   });
-// });
