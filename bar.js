@@ -26,23 +26,23 @@ var MOVE_COOLDOWN_PERIOD_MS = 400;
 var X_KEYCODE = 88;
 
 // Global variables.
-var queryEl = document.getElementById('query');
-var resultsEl = document.getElementById('results');
-var nodeCountEl = document.getElementById('node-count');
-let cInputBoxEl = document.getElementById('c-input-box');
+// var queryEl = document.getElementById('query');
+// var resultsEl = document.getElementById('results');
+// var nodeCountEl = document.getElementById('node-count');
+// let cInputBoxEl = document.getElementById('c-input-box');
 
-var nodeCountText = document.createTextNode('0');
-nodeCountEl.appendChild(nodeCountText);
+// var nodeCountText = document.createTextNode('0');
+// nodeCountEl.appendChild(nodeCountText);
 
 // Used by handleMouseMove() to enforce a cooldown period on move.
 var lastMoveTimeInMs = 0;
 
-var evaluateQuery = function() {
-  chrome.runtime.sendMessage({
-    type: 'evaluate',
-    query: queryEl.value
-  });
-};
+// var evaluateQuery = function() {
+//   chrome.runtime.sendMessage({
+//     type: 'evaluate',
+//     query: queryEl.value
+//   });
+// };
 
 var handleRequest = function(request, sender, cb) {
   // Note: Setting textarea's value and text node's nodeValue is XSS-safe.
@@ -64,13 +64,13 @@ var handleRequest = function(request, sender, cb) {
   } = request;
   switch (request.type) {
     case 'update':
-      if (request.query !== null) {
-        queryEl.value = request.query;
-      }
-      if (request.results !== null) {
-        resultsEl.value = request.results[0];
-        nodeCountText.nodeValue = request.results[1];
-      }
+      // if (request.query !== null) {
+      //   queryEl.value = request.query;
+      // }
+      // if (request.results !== null) {
+      //   resultsEl.value = request.results[0];
+      //   nodeCountText.nodeValue = request.results[1];
+      // }
       break;
     // case 'fixingPopup':
     //   console.log('fixingPopup');
@@ -107,13 +107,13 @@ var handleKeyDown = function(e) {
   }
 };
 
-queryEl.addEventListener('keyup', evaluateQuery);
-queryEl.addEventListener('mouseup', evaluateQuery);
+// queryEl.addEventListener('keyup', evaluateQuery);
+// queryEl.addEventListener('mouseup', evaluateQuery);
 
 // Add mousemove listener so we can detect Shift + mousemove inside iframe.
-document.addEventListener('mousemove', handleMouseMove);
+// document.addEventListener('mousemove', handleMouseMove);
 // Add keydown listener so we can detect Ctrl-Shift-X and tell the content
 // script to hide iframe and steal focus.
-document.addEventListener('keydown', handleKeyDown);
+// document.addEventListener('keydown', handleKeyDown);
 
 chrome.runtime.onMessage.addListener(handleRequest);

@@ -307,6 +307,7 @@ xh.confirmSavePath = function (data) {
     xh.showHint();
     xh.closeHintDelay(2500);
   }
+  console.log('xh.xpathCol', xh.xpathCol);
 }
 
 // * 计算当前元素的位置
@@ -363,6 +364,11 @@ xh.popupOtherInputChange = function (e) {
 
 xh.closeCInputBox = function () {
   xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'none');
+}
+
+xh.cancelInputBox = function () {
+  xh.closeCInputBox();
+  xh.clearHighlights();
 }
 
 xh.openCInputBox = function () {
@@ -488,7 +494,7 @@ xh.fixingPopup = function (toggle, param) {
     xh.popupButtonCancel = xh.divTmp.querySelector('#popupButtonCancel')
     xh.popupButtonConfirm = xh.divTmp.querySelector('#popupButtonConfirm')
 
-    xh.popupButtonCancel.addEventListener('click', xh.closeCInputBox);
+    xh.popupButtonCancel.addEventListener('click', xh.cancelInputBox);
     xh.popupButtonConfirm.addEventListener('click', () => {
       let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
       xh.confirmSavePath({
@@ -600,7 +606,7 @@ xh.Bar = function () {
   // Init to hidden so first showBar_() triggers fade-in.
   this.barFrame_.classList.add('hidden');
 
-  document.addEventListener('keydown', this.boundKeyDown_);
+  // document.addEventListener('keydown', this.boundKeyDown_);
   chrome.runtime.onMessage.addListener(this.boundHandleRequest_);
 };
 
