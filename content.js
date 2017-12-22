@@ -42,12 +42,14 @@ xh.popupTextareaResult = null; // * 弹窗里的result框
 xh.popupButtonConfirm = null;
 xh.popupButtonCancel = null;
 
+xh.IS_OPEN = false;
+
 xh.popupSelectPreset = [
   '预设标题1',
   '预设标题2'
 ]
 
-xh.xpathCol = {}; // * 保存的xpath合集
+xh.cssRuleCol = {}; // * 保存的xpath合集
 
 xh.hintInsS = `
   <style>
@@ -132,12 +134,7 @@ xh.highlight = function(els) {
 };
 
 // * 转为xpath为css规则
-xh.splitQuery = function (query) {
-  // console.log('splitQuery');
-  if (!query) {
-    return;
-  }
-  console.log('query', query);
+xh.xpathToCssRule = function (query) {
   var queryArr = query.split('/');
   var newQuery = '';
   queryArr.forEach(function (ele, index, arr) {
@@ -150,6 +147,29 @@ xh.splitQuery = function (query) {
       newQuery = newQuery + ' ' + withoutDel + splitRes;
     }
   });
+  return newQuery.trim();
+}
+
+// * 全局匹配css规则
+xh.splitQuery = function (query) {
+  // console.log('splitQuery');
+  if (!query) {
+    return;
+  }
+  console.log('query', query);
+  // var queryArr = query.split('/');
+  // var newQuery = '';
+  // queryArr.forEach(function (ele, index, arr) {
+  //   if(ele.indexOf('[') === -1 && xh.withoutExcludeKey(ele)) {
+  //     newQuery = newQuery + ' ' + ele.trim();
+  //   } else if (ele !== '' && ele.indexOf('[') !== -1) {
+  //     let withoutDel = ele.substring(0, ele.indexOf('['));
+  //     let delStringOnly = ele.substring(ele.indexOf('['));
+  //     let splitRes = xh.regDelimiter(delStringOnly.trim());
+  //     newQuery = newQuery + ' ' + withoutDel + splitRes;
+  //   }
+  // });
+  var newQuery = xh.xpathToCssRule(query);
   console.log('newQueryFinally', newQuery.trim());
   if (newQuery) {
     var matchDomArr = document.querySelectorAll(newQuery);
@@ -283,20 +303,20 @@ xh.closeHintDelay = function (delay) {
 xh.confirmSavePath = function (data) {
   console.log('confirmSavePath', data);
   /**
-   * TODOS:
+   * DONE:
    * 保存path
    * 关闭弹窗
    * 关闭高亮
    * 显示提示
    */
-  let { title, xpath } = data;
-  if (xh.xpathCol[title]) {
-    xh.xpathCol[title].push(xpath);
+  let { title, cssSelector } = data;
+  if (xh.cssRuleCol[title]) {
+    xh.cssRuleCol[title].push(cssSelector);
   } else {
-    xh.xpathCol[title] = [];
-    xh.xpathCol[title].push(xpath);
+    xh.cssRuleCol[title] = [];
+    xh.cssRuleCol[title].push(cssSelector);
   }
-  // console.log('xh.xpathCol', xh.xpathCol);
+  // console.log('xh.cssRuleCol', xh.cssRuleCol);
   xh.closeCInputBox();
   xh.clearHighlights();
   if (xh.hintIns) {
@@ -307,6 +327,7 @@ xh.confirmSavePath = function (data) {
     xh.showHint();
     xh.closeHintDelay(2500);
   }
+  console.log('xh.cssRuleCol', xh.cssRuleCol);
 }
 
 // * 计算当前元素的位置
@@ -365,10 +386,16 @@ xh.closeCInputBox = function () {
   xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'none');
 }
 
+xh.cancelInputBox = function () {
+  xh.closeCInputBox();
+  xh.clearHighlights();
+}
+
 xh.openCInputBox = function () {
   xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'block');
 }
 
+// * 创建弹框实例和定位弹框实例
 xh.fixingPopup = function (toggle, param) {
   let xpath = param && param.xpath ? param.xpath : '';
   let resultStr = param && param.resultStr ? param.resultStr : '';
@@ -488,12 +515,12 @@ xh.fixingPopup = function (toggle, param) {
     xh.popupButtonCancel = xh.divTmp.querySelector('#popupButtonCancel')
     xh.popupButtonConfirm = xh.divTmp.querySelector('#popupButtonConfirm')
 
-    xh.popupButtonCancel.addEventListener('click', xh.closeCInputBox);
+    xh.popupButtonCancel.addEventListener('click', xh.cancelInputBox);
     xh.popupButtonConfirm.addEventListener('click', () => {
       let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
       xh.confirmSavePath({
         title: title,
-        xpath: xpath
+        cssSelector: xh.cssRuleOptimization(xpath)
       });
     });
     
@@ -512,6 +539,36 @@ xh.fixingPopup = function (toggle, param) {
     //   results: null
     // });
   }
+}
+
+// * css优化到最小范围
+xh.cssRuleOptimization = function (xpath) {
+  /**
+   * DONE:
+   * 1：判断是否有id，没有的话返回原样
+   * 2：判断最后一个id所在位置
+   * 3：移除最后一个id之前的所有规则
+   */
+  let cssRuleOrigin = xh.xpathToCssRule(xpath);
+  let regId = /(id=)/g;
+  if (!regId.test(cssRuleOrigin)) {
+    return cssRuleOrigin;
+  }
+  let cssRuleArr = cssRuleOrigin.split(' ');
+  // console.log('cssRuleArr', cssRuleArr);
+  let cssRuleArrL = cssRuleArr.length;
+  let cssRuleLastIdIndex;
+  for (let i = cssRuleArrL - 1; i >=0 ; i--) {
+    if (cssRuleArr[i].indexOf('id=') !== -1) {
+      cssRuleLastIdIndex = i;
+      break;
+    }
+  }
+  let cssRuleSplit = cssRuleArr.splice(cssRuleLastIdIndex);
+  // console.log('cssRuleSplit', cssRuleSplit);
+  let cssRuleResult = cssRuleSplit.join(' ');
+  // console.log('cssRuleResult', cssRuleResult);
+  return cssRuleResult;
 }
 
 // Returns [values, nodeCount]. Highlights result nodes, if applicable. Assumes
@@ -594,49 +651,62 @@ xh.Bar = function () {
   this.currElPos = null;
   this.popupPos = null;
 
-  this.barFrame_ = document.createElement('iframe');
-  this.barFrame_.src = chrome.runtime.getURL('bar.html');
-  this.barFrame_.id = 'xh-bar';
+  // this.barFrame_ = document.createElement('iframe');
+  // this.barFrame_.src = chrome.runtime.getURL('bar.html');
+  // this.barFrame_.id = 'xh-bar';
   // Init to hidden so first showBar_() triggers fade-in.
-  this.barFrame_.classList.add('hidden');
+  // this.barFrame_.classList.add('hidden');
 
-  document.addEventListener('keydown', this.boundKeyDown_);
+  // document.addEventListener('keydown', this.boundKeyDown_);
   chrome.runtime.onMessage.addListener(this.boundHandleRequest_);
 };
 
 xh.Bar.prototype.hidden_ = function() {
-  return this.barFrame_.classList.contains('hidden');
+  // return this.barFrame_.classList.contains('hidden');
 };
+
+xh.Bar.prototype.isOpen_ = function () {
+  return xh.IS_OPEN;
+}
 
 xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   xh.clearHighlights();
   this.query_ = el ? xh.makeQueryForElement(el) : '';
+  console.log('this.query_ ', this.query_ );
   this.updateBar_(true);
 };
 
+// ! 更新bar.html相关显示(暂不需要)
 xh.Bar.prototype.updateBar_ = function(updateQuery) {
   var results = this.query_ ? xh.evaluateQuery(this.query_) : ['', 0];
-  chrome.runtime.sendMessage({
-    type: 'update',
-    query: updateQuery ? this.query_ : null,
-    results: results
-  });
+  // chrome.runtime.sendMessage({
+  //   type: 'update',
+  //   query: updateQuery ? this.query_ : null,
+  //   results: results
+  // });
 };
 
 xh.Bar.prototype.showBar_ = function() {
   var that = this;
   function impl() {
-    that.barFrame_.classList.remove('hidden');
+    // that.barFrame_.classList.remove('hidden');
+    // * 添加开启状态
+    xh.IS_OPEN = true;
+    chrome.runtime.sendMessage({
+      type: 'open'
+    });
     document.addEventListener('mousemove', that.boundMouseMove_);
     // * 添加点击事件
     document.addEventListener('click', that.boundMouseClick);
     // * 打开弹框
     xh.openCInputBox();
     that.updateBar_(true);
+    console.log('showBar');
   }
+  // ! 判断bar.html是否在DOM里
   if (!this.inDOM_) {
     this.inDOM_ = true;
-    document.body.appendChild(this.barFrame_);
+    // document.body.appendChild(this.barFrame_);
   }
   window.setTimeout(impl, 0);
 };
@@ -644,7 +714,12 @@ xh.Bar.prototype.showBar_ = function() {
 xh.Bar.prototype.hideBar_ = function() {
   var that = this;
   function impl() {
-    that.barFrame_.classList.add('hidden');
+    // that.barFrame_.classList.add('hidden');
+    // * 添加关闭状态
+    xh.IS_OPEN = false;
+    chrome.runtime.sendMessage({
+      type: 'close'
+    });
     document.removeEventListener('mousemove', that.boundMouseMove_);
     // * 移除点击事件
     document.removeEventListener('click', that.boundMouseClick);
@@ -656,7 +731,8 @@ xh.Bar.prototype.hideBar_ = function() {
 };
 
 xh.Bar.prototype.toggleBar_ = function() {
-  if (this.hidden_()) {
+  // if (this.hidden_()) {
+  if (!this.isOpen_()) {
     this.showBar_();
     // xh.preventHref();
   } else {
@@ -672,7 +748,7 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     this.updateBar_(false);
   } else if (request.type === 'moveBar') {
     // Move iframe to a different part of the screen.
-    this.barFrame_.classList.toggle('bottom');
+    // this.barFrame_.classList.toggle('bottom');
   } else if (request.type === 'hideBar') {
     this.hideBar_();
     // xh.unPreventHref();
@@ -708,19 +784,17 @@ xh.Bar.prototype.keyDown_ = function(e) {
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
-  // console.log('e', e);
+  console.log('e', e);
   let flagPopup = false;
   let domPath = e.path;
   let domPathL = domPath.length;
   for (let i = 0; i < domPathL; i++) {
-    // console.log('domPath[i].id', domPath[i].id)
     if (domPath[i] && domPath[i].id && domPath[i].id.indexOf('c-input-box') !== -1) {
       e.stopPropagation();
       flagPopup = true;
       break;
     }
   }
-  // e.preventDefault();
   if (e.target.tagName === 'A') {
     e.preventDefault();
   } else if (xh.checkParentHref(e)) {
@@ -728,7 +802,7 @@ xh.Bar.prototype.mouseClick_ = function (e) {
   } else if (xh.checkParentHref(e.target.parentNode)) {
     e.preventDefault();
   }
-  console.log('flagPopup', flagPopup);
+  // console.log('flagPopup', flagPopup);
   if (this.currEl_ && !flagPopup) {
     // * 计算当前元素的位置与周围可用的空间
     xh.calcTargetElePos(e);
