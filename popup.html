@@ -1,0 +1,24 @@
+<!doctype html>
+<!--
+ This page is shown when the extension button is clicked, because the
+ "browser_action" field in manifest.json contains the "default_popup" key with
+ value "popup.html".
+ -->
+<html>
+  <head>
+    <title>入门项目</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="popup.css">
+  </head>
+
+  <body class="gtx-content">
+    <script src="popup.js"></script>
+    <div id="container" class="content">
+      <ul class="ul-menu">
+        <li id="submit">提交</li>
+        <li id="cancel">全部取消</li>
+      </ul>
+    </div>
+    <!-- <script src="background.js" type="text/javascript"></script> -->
+  </body>
+</html>

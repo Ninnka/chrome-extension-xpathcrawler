@@ -1,0 +1,38 @@
+*{
+  margin: 0;
+  padding: 0;
+}
+.gtx-content {
+  color: #252525;
+  font-family: 'Roboto',arial,sans-serif;
+  font-size: 14px;
+  margin: 0;
+}
+.content {
+  
+}
+
+ul {
+  display: block;
+  list-style-type: disc;
+  -webkit-margin-before: 1em;
+  -webkit-margin-after: 1em;
+  -webkit-margin-start: 0px;
+  -webkit-margin-end: 0px;
+  -webkit-padding-start: 0;
+}
+.ul-menu {
+}
+
+.ul-menu li{
+  width: 100px;
+  height: 30px;
+  line-height: 30px;
+  text-align: center;
+  list-style-type: none;
+}
+
+.ul-menu li:hover{
+  color: #fff;
+  background: #4285f4;
+}
