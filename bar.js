@@ -85,6 +85,7 @@ var handleRequest = function(request, sender, cb) {
   }
 };
 
+// * 移动bar.html的位置
 var handleMouseMove = function(e) {
   if (e.shiftKey) {
     // Only move bar if we aren't in the cooldown period. Note, the cooldown
@@ -99,6 +100,7 @@ var handleMouseMove = function(e) {
   }
 };
 
+// * 隐藏bar.html功能
 var handleKeyDown = function(e) {
   var ctrlKey = e.ctrlKey || e.metaKey;
   var shiftKey = e.shiftKey;
