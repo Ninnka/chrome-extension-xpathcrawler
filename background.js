@@ -31,9 +31,7 @@ function handleRequest(request, sender, cb) {
   let { type } = request;
   switch (type) {
     case 'open':
-      chrome.browserAction.setBadgeText({
-        text: "ON"
-      });
+      signedBrowserActionBadgeText();
       if (openTabCol['windowId' + currentTabObj.windowId]) {
         openTabCol['windowId' + currentTabObj.windowId].push(currentTabObj.tabId);
       } else {
@@ -42,15 +40,12 @@ function handleRequest(request, sender, cb) {
       }
       break;
     case 'close':
-      chrome.browserAction.setBadgeText({
-        text: "OFF"
-      });
+      initBrowserActionBadgeText();
       if (openTabCol['windowId' + currentTabObj.windowId]) {
         let i = openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId);
-        if (i === -1) {
-          break;
+        if (i !== -1) {
+          openTabCol['windowId' + currentTabObj.windowId].splice(i, 1);
         }
-        openTabCol['windowId' + currentTabObj.windowId].splice(i, 1);
       }
       break;
   }
@@ -61,30 +56,52 @@ chrome.browserAction.onClicked.addListener(function(tab) {
   chrome.tabs.sendMessage(tab.id, {type: 'toggleBar'});
 });
 
-// * 监听chrome的tab切换
+// * 监听chrome的tab更新并更新记录
+function handleTabUpdate (tabId, changeInfo, tab) {
+  if (changeInfo.status === 'loading') {
+    // console.log('tab', tab);
+    initBrowserActionBadgeText();
+    if (openTabCol['windowId' + tab.windowId]) {
+      let i = openTabCol['windowId' + tab.windowId].indexOf(tabId);
+      if (i !== -1) {
+        openTabCol['windowId' + tab.windowId].splice(i, 1);
+      }
+    }
+  }
+}
+
+chrome.tabs.onUpdated.addListener(handleTabUpdate);
+
+// * 监听chrome的tab切换并更新记录
 function handleTabActivated (request, sender, id) {
   // console.log('request', request); // * tabId; windowId
   currentTabObj = request;
   // console.log('currentTabObj', currentTabObj);
   // console.log('openTabCol', openTabCol);
-  if (!openTabCol['windowId' + currentTabObj.windowId]
-  || (openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId) === -1)) {
+  if (
+    !openTabCol['windowId' + currentTabObj.windowId]
+    || (openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId) === -1)
+  ) {
     initBrowserActionBadgeText();
-  } else if (openTabCol['windowId' + currentTabObj.windowId] && (openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId) !== -1)) {
+  } else if (
+    openTabCol['windowId' + currentTabObj.windowId]
+    && (openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId) !== -1)
+  ) {
     signedBrowserActionBadgeText();
   }
 }
 
 chrome.tabs.onActivated.addListener(handleTabActivated);
 
-// * 初始化标签
+
+// * 初始化功能状态文本
 function initBrowserActionBadgeText () {
   chrome.browserAction.setBadgeText({
     text: "OFF"
   });
 }
 
-// * 标记已开启
+// * 标记已开启状态文本
 function signedBrowserActionBadgeText () {
   chrome.browserAction.setBadgeText({
     text: "ON"

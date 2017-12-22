@@ -120,9 +120,9 @@ xh.makeQueryForElement = function(el) {
     }
     // If the last tag is an img, the user probably wants img/@src.
     if (query === '' && el.tagName.toLowerCase() === 'img') {
-      component += '/@src';
+      component += '~/~@src'; // * 替换了分隔符
     }
-    query = '/' + component + query;
+    query = '~/~' + component + query; // * 替换了分隔符
   }
   return query;
 };
@@ -135,12 +135,18 @@ xh.highlight = function(els) {
 
 // * 转为xpath为css规则
 xh.xpathToCssRule = function (query) {
-  var queryArr = query.split('/');
+  var queryArr = query.split('~/~'); // * 使用新的分隔符
   var newQuery = '';
   queryArr.forEach(function (ele, index, arr) {
-    if(ele.indexOf('[') === -1 && xh.withoutExcludeKey(ele)) {
+    if(
+      ele.indexOf('[') === -1
+      && xh.withoutExcludeKey(ele)
+    ) {
       newQuery = newQuery + ' ' + ele.trim();
-    } else if (ele !== '' && ele.indexOf('[') !== -1) {
+    } else if (
+      ele !== ''
+      && ele.indexOf('[') !== -1
+    ) {
       let withoutDel = ele.substring(0, ele.indexOf('['));
       let delStringOnly = ele.substring(ele.indexOf('['));
       let splitRes = xh.regDelimiter(delStringOnly.trim());
@@ -156,7 +162,7 @@ xh.splitQuery = function (query) {
   if (!query) {
     return;
   }
-  console.log('query', query);
+  console.log('splitQuery query', query);
   // var queryArr = query.split('/');
   // var newQuery = '';
   // queryArr.forEach(function (ele, index, arr) {
@@ -170,7 +176,7 @@ xh.splitQuery = function (query) {
   //   }
   // });
   var newQuery = xh.xpathToCssRule(query);
-  console.log('newQueryFinally', newQuery.trim());
+  console.log('xpathToCssRule newQuery', newQuery.trim());
   if (newQuery) {
     var matchDomArr = document.querySelectorAll(newQuery);
     xh.highlight(matchDomArr);
@@ -194,7 +200,11 @@ xh.regDelimiter = function (ele) {
   
   while (regRes && regRes.lastIndex !== 0) {
     let tmpS = regRes[1];
-    if (tmpS.indexOf('=') !== -1 && xh.withoutExcludeKey(tmpS) && !xh.checkChildOrder(tmpS)) {
+    if (
+      tmpS.indexOf('=') !== -1
+      && xh.withoutExcludeKey(tmpS)
+      && !xh.checkChildOrder(tmpS)
+    ) {
       let tmpSR = tmpS.replace('@', '');
       res = res + tmpSR.trim();
       // console.log('tmp res', res);
@@ -206,7 +216,10 @@ xh.regDelimiter = function (ele) {
       // res = res + tmpSR.trim();
       res = res + "[class*='" + tmpSRArr[0] + "']";
       // console.log('tmp res class pattern', res);
-    } else if (xh.checkChildOrder(tmpS) && xh.CONTAIN_SLI) {
+    } else if (
+      xh.checkChildOrder(tmpS)
+      && xh.CONTAIN_SLI
+    ) {
       res = res + ':nth-child('+ tmpS.substring(1, tmpS.length - 1) + ')';
     }
     regRes = reg.exec(ele);
@@ -228,9 +241,12 @@ xh.withoutExcludeKey = function (ele) {
 // * 判断父级是否有a标签
 xh.checkParentHref = function (e) {
   const parent = e.target ? e.target.parentNode : e.parentNode;
-  if (parent.tagName === 'A'
-  && parent.childNodes
-  && parent.childNodes.length === 1) {
+  if (
+    parent
+    && parent.tagName === 'A'
+  // && parent.childNodes
+  // && parent.childNodes.length === 1
+  ) {
     return true;
   } else {
     return false;
@@ -247,7 +263,7 @@ xh.keyList = [
 
 xh.addPrevent = (event) => {
   // event.preventDefault();
-  console.log('event', event);
+  // console.log('event', event);
   if (event.target.tagName === 'A') {
     event.preventDefault();
   }
@@ -327,7 +343,7 @@ xh.confirmSavePath = function (data) {
     xh.showHint();
     xh.closeHintDelay(2500);
   }
-  console.log('xh.cssRuleCol', xh.cssRuleCol);
+  console.log('cssRuleCol', xh.cssRuleCol);
 }
 
 // * 计算当前元素的位置
@@ -354,7 +370,10 @@ xh.calcEleRoundPosAvalid = function (e) {
       x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
       y: y - 420
     }
-  } else if ((y > 420 && y < 420 + 90) || documentH - y > 420) {
+  } else if (
+    (y > 420 && y < 420 + 90)
+    || documentH - y > 420
+  ) {
     xhBarInstance.popupPos = {
       x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
       y: y + 30
@@ -508,7 +527,7 @@ xh.fixingPopup = function (toggle, param) {
     xh.popupTextareaXpath = xh.divTmp.querySelector('#popupTextareaXpath');
     xh.popupTextareaResult = xh.divTmp.querySelector('#popupTextareaResult');
 
-    xh.popupTextareaXpath.value = toggle ? xpath : '';
+    xh.popupTextareaXpath.value = toggle ? xh.transformSpeQueryToOldQuery(xpath) : '';
     xh.popupTextareaResult.value = toggle ? resultStr : '';
 
     // * 保存按钮
@@ -539,6 +558,11 @@ xh.fixingPopup = function (toggle, param) {
     //   results: null
     // });
   }
+}
+
+// * 将新分隔符版本的xpath转为正式版本的xpath
+xh.transformSpeQueryToOldQuery = function (querySpe) {
+  return querySpe.replace(/~\/~/g, '/');
 }
 
 // * css优化到最小范围
@@ -625,12 +649,12 @@ xh.evaluateQuery = function(query) {
 
   xh.highlight(toHighlight);
 
-  // * 进行全局匹配
-  xh.splitQuery(query);
+  // * 进行全局匹配，使用新分隔符的xpath
+  xh.splitQuery(xhBarInstance.queryNewSpe_);
   
   // * 发送消息
   xh.fixingPopup(true, {
-    xpath: query,
+    xpath: xhBarInstance.queryNewSpe_, // * 使用新分隔符的xpath
     resultStr: str
   });
   return [str, nodeCount];
@@ -650,6 +674,9 @@ xh.Bar = function () {
   this.currEl_ = null;
   this.currElPos = null;
   this.popupPos = null;
+
+  // * 使用新分隔符的query
+  this.queryNewSpe_ = null;
 
   // this.barFrame_ = document.createElement('iframe');
   // this.barFrame_.src = chrome.runtime.getURL('bar.html');
@@ -671,8 +698,10 @@ xh.Bar.prototype.isOpen_ = function () {
 
 xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   xh.clearHighlights();
-  this.query_ = el ? xh.makeQueryForElement(el) : '';
-  console.log('this.query_ ', this.query_ );
+  this.queryNewSpe_ = el ? xh.makeQueryForElement(el) : '';
+  this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
+  // this.query_ = el ? xh.makeQueryForElement(el) : '';
+  console.log(' updateQueryAndBar_ this.query_ ', this.query_ );
   this.updateBar_(true);
 };
 
@@ -701,7 +730,6 @@ xh.Bar.prototype.showBar_ = function() {
     // * 打开弹框
     xh.openCInputBox();
     that.updateBar_(true);
-    console.log('showBar');
   }
   // ! 判断bar.html是否在DOM里
   if (!this.inDOM_) {
@@ -771,25 +799,37 @@ xh.Bar.prototype.mouseMove_ = function(e) {
 xh.Bar.prototype.keyDown_ = function(e) {
   var ctrlKey = e.ctrlKey || e.metaKey;
   var shiftKey = e.shiftKey;
-  if (e.keyCode === xh.X_KEYCODE && ctrlKey && shiftKey) {
+  if (
+    e.keyCode === xh.X_KEYCODE
+    && ctrlKey
+    && shiftKey
+  ) {
     this.toggleBar_();
   }
   // If the user just pressed Shift and they're not holding Ctrl, update query.
   // Note that we rely on the mousemove handler to have updated this.currEl_.
   // Also, note that checking e.shiftKey wouldn't work here, since Shift is the
   // key that triggered this event.
-  if (!this.hidden_() && !ctrlKey && e.keyCode === xh.SHIFT_KEYCODE) {
+  if (
+    !this.hidden_()
+    && !ctrlKey
+    && e.keyCode === xh.SHIFT_KEYCODE
+  ) {
     this.updateQueryAndBar_(this.currEl_);
   }
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
-  console.log('e', e);
+  // console.log('e', e);
   let flagPopup = false;
   let domPath = e.path;
   let domPathL = domPath.length;
   for (let i = 0; i < domPathL; i++) {
-    if (domPath[i] && domPath[i].id && domPath[i].id.indexOf('c-input-box') !== -1) {
+    if (
+      domPath[i]
+      && domPath[i].id
+      && domPath[i].id.indexOf('c-input-box') !== -1
+    ) {
       e.stopPropagation();
       flagPopup = true;
       break;
@@ -803,7 +843,10 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     e.preventDefault();
   }
   // console.log('flagPopup', flagPopup);
-  if (this.currEl_ && !flagPopup) {
+  if (
+    this.currEl_
+    && !flagPopup
+  ) {
     // * 计算当前元素的位置与周围可用的空间
     xh.calcTargetElePos(e);
     xh.calcEleRoundPosAvalid();
