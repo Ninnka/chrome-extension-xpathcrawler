@@ -29,6 +29,7 @@ var X_KEYCODE = 88;
 var queryEl = document.getElementById('query');
 var resultsEl = document.getElementById('results');
 var nodeCountEl = document.getElementById('node-count');
+let cInputBoxEl = document.getElementById('c-input-box');
 
 var nodeCountText = document.createTextNode('0');
 nodeCountEl.appendChild(nodeCountText);
@@ -45,14 +46,42 @@ var evaluateQuery = function() {
 
 var handleRequest = function(request, sender, cb) {
   // Note: Setting textarea's value and text node's nodeValue is XSS-safe.
-  if (request.type === 'update') {
-    if (request.query !== null) {
-      queryEl.value = request.query;
-    }
-    if (request.results !== null) {
-      resultsEl.value = request.results[0];
-      nodeCountText.nodeValue = request.results[1];
-    }
+  // if (request.type === 'update') {
+  //   if (request.query !== null) {
+  //     queryEl.value = request.query;
+  //   }
+  //   if (request.results !== null) {
+  //     resultsEl.value = request.results[0];
+  //     nodeCountText.nodeValue = request.results[1];
+  //   }
+  // }
+  // console.log('rsi barjs request', request);
+  // * 根据通讯消息的类型判断操作
+  let {
+    type,
+    query,
+    results
+  } = request;
+  switch (request.type) {
+    case 'update':
+      if (request.query !== null) {
+        queryEl.value = request.query;
+      }
+      if (request.results !== null) {
+        resultsEl.value = request.results[0];
+        nodeCountText.nodeValue = request.results[1];
+      }
+      break;
+    // case 'fixingPopup':
+    //   console.log('fixingPopup');
+    //   if (query.show) {
+    //     cInputBoxEl.style.left = query.x + 'px';
+    //     cInputBoxEl.style.top = query.y + 'px';
+    //     cInputBoxEl.style.display = 'block';
+    //   } else {
+    //     cInputBoxEl.style.display = 'none';
+    //   }
+    //   break;
   }
 };
 
