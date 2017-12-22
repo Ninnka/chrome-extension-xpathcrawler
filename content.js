@@ -49,7 +49,7 @@ xh.popupSelectPreset = [
   '预设标题2'
 ]
 
-xh.xpathCol = {}; // * 保存的xpath合集
+xh.cssRuleCol = {}; // * 保存的xpath合集
 
 xh.hintInsS = `
   <style>
@@ -134,12 +134,7 @@ xh.highlight = function(els) {
 };
 
 // * 转为xpath为css规则
-xh.splitQuery = function (query) {
-  // console.log('splitQuery');
-  if (!query) {
-    return;
-  }
-  console.log('query', query);
+xh.xpathToCssRule = function (query) {
   var queryArr = query.split('/');
   var newQuery = '';
   queryArr.forEach(function (ele, index, arr) {
@@ -152,6 +147,29 @@ xh.splitQuery = function (query) {
       newQuery = newQuery + ' ' + withoutDel + splitRes;
     }
   });
+  return newQuery.trim();
+}
+
+// * 全局匹配css规则
+xh.splitQuery = function (query) {
+  // console.log('splitQuery');
+  if (!query) {
+    return;
+  }
+  console.log('query', query);
+  // var queryArr = query.split('/');
+  // var newQuery = '';
+  // queryArr.forEach(function (ele, index, arr) {
+  //   if(ele.indexOf('[') === -1 && xh.withoutExcludeKey(ele)) {
+  //     newQuery = newQuery + ' ' + ele.trim();
+  //   } else if (ele !== '' && ele.indexOf('[') !== -1) {
+  //     let withoutDel = ele.substring(0, ele.indexOf('['));
+  //     let delStringOnly = ele.substring(ele.indexOf('['));
+  //     let splitRes = xh.regDelimiter(delStringOnly.trim());
+  //     newQuery = newQuery + ' ' + withoutDel + splitRes;
+  //   }
+  // });
+  var newQuery = xh.xpathToCssRule(query);
   console.log('newQueryFinally', newQuery.trim());
   if (newQuery) {
     var matchDomArr = document.querySelectorAll(newQuery);
@@ -285,20 +303,20 @@ xh.closeHintDelay = function (delay) {
 xh.confirmSavePath = function (data) {
   console.log('confirmSavePath', data);
   /**
-   * TODOS:
+   * DONE:
    * 保存path
    * 关闭弹窗
    * 关闭高亮
    * 显示提示
    */
-  let { title, xpath } = data;
-  if (xh.xpathCol[title]) {
-    xh.xpathCol[title].push(xpath);
+  let { title, cssSelector } = data;
+  if (xh.cssRuleCol[title]) {
+    xh.cssRuleCol[title].push(cssSelector);
   } else {
-    xh.xpathCol[title] = [];
-    xh.xpathCol[title].push(xpath);
+    xh.cssRuleCol[title] = [];
+    xh.cssRuleCol[title].push(cssSelector);
   }
-  // console.log('xh.xpathCol', xh.xpathCol);
+  // console.log('xh.cssRuleCol', xh.cssRuleCol);
   xh.closeCInputBox();
   xh.clearHighlights();
   if (xh.hintIns) {
@@ -309,7 +327,7 @@ xh.confirmSavePath = function (data) {
     xh.showHint();
     xh.closeHintDelay(2500);
   }
-  console.log('xh.xpathCol', xh.xpathCol);
+  console.log('xh.cssRuleCol', xh.cssRuleCol);
 }
 
 // * 计算当前元素的位置
@@ -502,7 +520,7 @@ xh.fixingPopup = function (toggle, param) {
       let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
       xh.confirmSavePath({
         title: title,
-        xpath: xpath
+        cssSelector: xh.cssRuleOptimization(xpath)
       });
     });
     
@@ -521,6 +539,36 @@ xh.fixingPopup = function (toggle, param) {
     //   results: null
     // });
   }
+}
+
+// * css优化到最小范围
+xh.cssRuleOptimization = function (xpath) {
+  /**
+   * DONE:
+   * 1：判断是否有id，没有的话返回原样
+   * 2：判断最后一个id所在位置
+   * 3：移除最后一个id之前的所有规则
+   */
+  let cssRuleOrigin = xh.xpathToCssRule(xpath);
+  let regId = /(id=)/g;
+  if (!regId.test(cssRuleOrigin)) {
+    return cssRuleOrigin;
+  }
+  let cssRuleArr = cssRuleOrigin.split(' ');
+  // console.log('cssRuleArr', cssRuleArr);
+  let cssRuleArrL = cssRuleArr.length;
+  let cssRuleLastIdIndex;
+  for (let i = cssRuleArrL - 1; i >=0 ; i--) {
+    if (cssRuleArr[i].indexOf('id=') !== -1) {
+      cssRuleLastIdIndex = i;
+      break;
+    }
+  }
+  let cssRuleSplit = cssRuleArr.splice(cssRuleLastIdIndex);
+  // console.log('cssRuleSplit', cssRuleSplit);
+  let cssRuleResult = cssRuleSplit.join(' ');
+  // console.log('cssRuleResult', cssRuleResult);
+  return cssRuleResult;
 }
 
 // Returns [values, nodeCount]. Highlights result nodes, if applicable. Assumes
