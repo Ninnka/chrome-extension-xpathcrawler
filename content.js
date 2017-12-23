@@ -42,7 +42,7 @@ xh.popupTextareaResult = null; // * 弹窗里的result框
 xh.popupButtonConfirm = null;
 xh.popupButtonCancel = null;
 
-xh.IS_OPEN = false;
+xh.IS_OPEN = false; // * 功能是否开启的状态
 
 xh.popupSelectPreset = [
   '预设标题1',
@@ -51,33 +51,11 @@ xh.popupSelectPreset = [
 
 xh.cssRuleCol = {}; // * 保存的xpath合集
 
-xh.hintInsS = `
-  <style>
-    .c-hint--wrapper {
-      position: fixed;
-      width: 100%;
-      min-height: 40px;
-      color: #ffffff;
-      top: 350px;
-      left: 0;
-      text-align: center;
-    }
-    .c-hint {
-      display: inline-block;
-      vertical-align: middle;
-      min-width: 200px;
-      line-height: 40px;
-      background-color: #565656;
-    }
-  </style>
-  <div class="c-hint--wrapper">
-    <div class="c-hint">保存成功</div>
-  </div>
-`
 xh.hintIns = null; // * 操作提示实例
 
 xh.hintDelayIns = null; // * 提示的定时器
 
+// * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
   var p = primaryEl, s = siblingEl;
   return (p.tagName === s.tagName &&
@@ -85,6 +63,14 @@ xh.elementsShareFamily = function(primaryEl, siblingEl) {
           (!p.id || p.id === s.id));
 };
 
+// * CSS Selector使用
+xh.elementsShareFamilyCss = function (primaryEl, siblingEl) {
+  // * CSS选择器部分暂时只用tag名是否相等来判断子元素们是否享有公用的父元素
+  var p = primaryEl, s = siblingEl;
+  return p.tagName === s.tagName;
+}
+
+// * Xpath使用
 xh.getElementIndex = function(el) {
   var index = 1;  // XPath is one-indexed
   var sib;
@@ -104,28 +90,73 @@ xh.getElementIndex = function(el) {
   return 0;
 };
 
-// * 创建xpath
+// * CSS Selector使用
+xh.getElementIndexCss = function (el) {
+  var index = 1;  // XPath is one-indexed
+  var sib;
+  for (sib = el.previousSibling; sib; sib = sib.previousSibling) {
+    if (sib.nodeType === Node.ELEMENT_NODE && xh.elementsShareFamilyCss(el, sib)) {
+      index++;
+    }
+  }
+  if (index > 1) {
+    return index;
+  }
+  for (sib = el.nextSibling; sib; sib = sib.nextSibling) {
+    if (sib.nodeType === Node.ELEMENT_NODE && xh.elementsShareFamilyCss(el, sib)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+// * 创建xpath和css selector
 xh.makeQueryForElement = function(el) {
   var query = '';
+  var queryCss = '';
   for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
     var component = el.tagName.toLowerCase();
+    var componentCss = el.tagName.toLowerCase(); // *
     var index = xh.getElementIndex(el);
+    var indexCss = xh.getElementIndexCss(el); // *
     if (el.id) {
       component += '[@id=\'' + el.id + '\']';
+      componentCss += '[id=\'' + el.id + '\']'; // *
     } else if (el.className) {
       component += '[@class=\'' + el.className + '\']';
+      // * css seletor的class用经过刷选处理，目前最多只留下一个class名
+      componentCss += '[class*=\'' + xh.cssClassOptimization(el.className) + '\']';
     }
     if (index >= 1) {
       component += '[' + index + ']';
+    }
+    // * css selector部分专用
+    if (indexCss >= 1 && queryCss === '') {
+      componentCss += ':nth-child(' + indexCss + ')';
     }
     // If the last tag is an img, the user probably wants img/@src.
     if (query === '' && el.tagName.toLowerCase() === 'img') {
       component += '~/~@src'; // * 替换了分隔符
     }
+    if (queryCss === '' && el.tagName.toLowerCase() === 'img') {
+      componentCss += '[src]'; // *
+    }
     query = '~/~' + component + query; // * 替换了分隔符
+    queryCss = ' ' + componentCss + queryCss;
   }
-  return query;
+  return {
+    query,
+    queryCss
+  };
 };
+
+xh.cssClassOptimization = function (className) {
+  let classArr = className.split(' ');
+  return classArr[0];
+  // if (classArr.length >= 1) {
+    
+  // }
+}
 
 xh.highlight = function(els) {
   for (var i = 0, l = els.length; i < l; i++) {
@@ -138,7 +169,7 @@ xh.xpathToCssRule = function (query) {
   var queryArr = query.split('~/~'); // * 使用新的分隔符
   var newQuery = '';
   queryArr.forEach(function (ele, index, arr) {
-    if(
+    if (
       ele.indexOf('[') === -1
       && xh.withoutExcludeKey(ele)
     ) {
@@ -159,26 +190,8 @@ xh.xpathToCssRule = function (query) {
 // * 全局匹配css规则
 xh.splitQuery = function (query) {
   // console.log('splitQuery');
-  if (!query) {
-    return;
-  }
-  console.log('splitQuery query', query);
-  // var queryArr = query.split('/');
-  // var newQuery = '';
-  // queryArr.forEach(function (ele, index, arr) {
-  //   if(ele.indexOf('[') === -1 && xh.withoutExcludeKey(ele)) {
-  //     newQuery = newQuery + ' ' + ele.trim();
-  //   } else if (ele !== '' && ele.indexOf('[') !== -1) {
-  //     let withoutDel = ele.substring(0, ele.indexOf('['));
-  //     let delStringOnly = ele.substring(ele.indexOf('['));
-  //     let splitRes = xh.regDelimiter(delStringOnly.trim());
-  //     newQuery = newQuery + ' ' + withoutDel + splitRes;
-  //   }
-  // });
-  var newQuery = xh.xpathToCssRule(query);
-  console.log('xpathToCssRule newQuery', newQuery.trim());
-  if (newQuery) {
-    var matchDomArr = document.querySelectorAll(newQuery);
+  if (query) {
+    var matchDomArr = document.querySelectorAll(query);
     xh.highlight(matchDomArr);
   }
 }
@@ -220,7 +233,7 @@ xh.regDelimiter = function (ele) {
       xh.checkChildOrder(tmpS)
       && xh.CONTAIN_SLI
     ) {
-      res = res + ':nth-child('+ tmpS.substring(1, tmpS.length - 1) + ')';
+      res = res + ':nth-of-type('+ tmpS.substring(1, tmpS.length - 1) + ')';
     }
     regRes = reg.exec(ele);
   }
@@ -263,7 +276,6 @@ xh.keyList = [
 
 xh.addPrevent = (event) => {
   // event.preventDefault();
-  // console.log('event', event);
   if (event.target.tagName === 'A') {
     event.preventDefault();
   }
@@ -292,20 +304,55 @@ xh.clearHighlights = function() {
   }
 };
 
-xh.createHint = function () {
-  xh.hintIns = document.createElement('div');
-  xh.hintIns.innerHTML = xh.hintInsS;
+xh.getHintInsCustom = function (text) {
+  return `
+    <style>
+      .c-hint--wrapper {
+        position: fixed;
+        width: 100%;
+        min-height: 40px;
+        color: #ffffff;
+        top: 350px;
+        left: 0;
+        text-align: center;
+      }
+      .c-hint {
+        display: inline-block;
+        vertical-align: middle;
+        min-width: 200px;
+        line-height: 40px;
+        background-color: #565656;
+      }
+    </style>
+    <div class="c-hint--wrapper">
+      <div class="c-hint">${text}</div>
+    </div>
+  `;
+}
+
+/**
+ * 创建提示框的实例
+ * @param {String} text 需要显示的文本
+ */
+xh.createHint = function (text) {
+  if (!xh.hintIns) {
+    xh.hintIns = document.createElement('div');
+  }
+  xh.hintIns.innerHTML = xh.getHintInsCustom(text);
   document.body.appendChild(xh.hintIns);
 }
 
+// * 显示提示框
 xh.showHint = function () {
   xh.hintIns && (xh.hintIns.style.display = 'block');
 }
 
+// * 隐藏提示框
 xh.hideHint = function () {
   xh.hintIns && (xh.hintIns.style.display = 'none');
 }
 
+// * 延迟关闭提示框
 xh.closeHintDelay = function (delay) {
   if (xh.hintDelayIns) {
     window.clearTimeout(xh.hintDelayIns);
@@ -316,6 +363,7 @@ xh.closeHintDelay = function (delay) {
   }, delay);
 }
 
+// * 弹窗确认按钮的回调方法
 xh.confirmSavePath = function (data) {
   console.log('confirmSavePath', data);
   /**
@@ -335,14 +383,14 @@ xh.confirmSavePath = function (data) {
   // console.log('xh.cssRuleCol', xh.cssRuleCol);
   xh.closeCInputBox();
   xh.clearHighlights();
-  if (xh.hintIns) {
-    xh.showHint();
-    xh.closeHintDelay(2500);
-  } else {
-    xh.createHint();
-    xh.showHint();
-    xh.closeHintDelay(2500);
-  }
+  // if (xh.hintIns) {
+  //   xh.showHint();
+  //   xh.closeHintDelay(2500);
+  // } else {
+  xh.createHint('保存成功');
+  xh.showHint();
+  xh.closeHintDelay(2500);
+  // }
   console.log('cssRuleCol', xh.cssRuleCol);
 }
 
@@ -365,17 +413,17 @@ xh.calcEleRoundPosAvalid = function (e) {
   const x = xhBarInstance.currElPos.x;
   const y = xhBarInstance.currElPos.y;
   // * 判断上方的位置
-  if (y > 420 + 90) {
+  if (y > 400 + 20 + 90) {
     xhBarInstance.popupPos = {
-      x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
-      y: y - 420
+      x: x > 200 + 20 ? (documentW - x > 200 + 20 ? x - 200 : x - 400) : x,
+      y: y - 400 - 20
     }
   } else if (
-    (y > 420 && y < 420 + 90)
-    || documentH - y > 420
+    (y > 400 + 20 && y < 400 + 20 + 90)
+    || documentH - y > 400 + 20
   ) {
     xhBarInstance.popupPos = {
-      x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
+      x: x > 200 + 20 ? (documentW - x > 200 + 20 ? x - 200 : x - 400) : x,
       y: y + 30
     }
   } else {
@@ -401,15 +449,18 @@ xh.popupOtherInputChange = function (e) {
   // console.log('popupOtherInputChange', e);
 }
 
+// * 关闭弹窗
 xh.closeCInputBox = function () {
   xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'none');
 }
 
+// * 取消按钮的回调事件
 xh.cancelInputBox = function () {
   xh.closeCInputBox();
   xh.clearHighlights();
 }
 
+// * 打开弹窗
 xh.openCInputBox = function () {
   xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'block');
 }
@@ -539,7 +590,7 @@ xh.fixingPopup = function (toggle, param) {
       let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
       xh.confirmSavePath({
         title: title,
-        cssSelector: xh.cssRuleOptimization(xpath)
+        cssSelector: xh.cssRuleOptimization(xhBarInstance.queryCssSelector)
       });
     });
     
@@ -547,16 +598,6 @@ xh.fixingPopup = function (toggle, param) {
       xh.docuBody = document.querySelector('body');
     }
     xh.docuBody.appendChild(xh.divTmp);
-
-    // chrome.runtime.sendMessage({
-    //   type: 'fixingPopup',
-    //   query: {
-    //     show: true,
-    //     x: xhBarInstance.popupPos.x,
-    //     y: xhBarInstance.popupPos.y
-    //   },
-    //   results: null
-    // });
   }
 }
 
@@ -566,14 +607,14 @@ xh.transformSpeQueryToOldQuery = function (querySpe) {
 }
 
 // * css优化到最小范围
-xh.cssRuleOptimization = function (xpath) {
+xh.cssRuleOptimization = function (query) {
   /**
    * DONE:
    * 1：判断是否有id，没有的话返回原样
    * 2：判断最后一个id所在位置
    * 3：移除最后一个id之前的所有规则
    */
-  let cssRuleOrigin = xh.xpathToCssRule(xpath);
+  let cssRuleOrigin = query;
   let regId = /(id=)/g;
   if (!regId.test(cssRuleOrigin)) {
     return cssRuleOrigin;
@@ -647,10 +688,10 @@ xh.evaluateQuery = function(query) {
     nodeCount = 0;
   }
 
-  xh.highlight(toHighlight);
+  // xh.highlight(toHighlight);
 
-  // * 进行全局匹配，使用新分隔符的xpath
-  xh.splitQuery(xhBarInstance.queryNewSpe_);
+  // * 进行全局匹配，使用css selector
+  xh.splitQuery(xhBarInstance.queryCssSelector);
   
   // * 发送消息
   xh.fixingPopup(true, {
@@ -677,6 +718,8 @@ xh.Bar = function () {
 
   // * 使用新分隔符的query
   this.queryNewSpe_ = null;
+  // * css selector
+  this.queryCssSelector = null;
 
   // this.barFrame_ = document.createElement('iframe');
   // this.barFrame_.src = chrome.runtime.getURL('bar.html');
@@ -692,16 +735,24 @@ xh.Bar.prototype.hidden_ = function() {
   // return this.barFrame_.classList.contains('hidden');
 };
 
+// * 功能是否已经打开
 xh.Bar.prototype.isOpen_ = function () {
   return xh.IS_OPEN;
 }
 
+// * 更新xpath和css selector，并更新顶部的显示框（显示框已删除）
 xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   xh.clearHighlights();
-  this.queryNewSpe_ = el ? xh.makeQueryForElement(el) : '';
+  let queryObj = null;
+  if (el) {
+    queryObj = xh.makeQueryForElement(el);
+  }
+  this.queryNewSpe_ = queryObj ? queryObj.query : '';
+  this.queryCssSelector = queryObj ? queryObj.queryCss : '';
+  console.log('queryCssSelector', this.queryCssSelector);
   this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
-  // this.query_ = el ? xh.makeQueryForElement(el) : '';
-  console.log(' updateQueryAndBar_ this.query_ ', this.query_ );
+  console.log('query_', this.query_);
+  // console.log(' updateQueryAndBar_ this.query_ ', this.query_ );
   this.updateBar_(true);
 };
 
@@ -715,6 +766,7 @@ xh.Bar.prototype.updateBar_ = function(updateQuery) {
   // });
 };
 
+// * 显示顶部的显示框
 xh.Bar.prototype.showBar_ = function() {
   var that = this;
   function impl() {
@@ -727,7 +779,7 @@ xh.Bar.prototype.showBar_ = function() {
     document.addEventListener('mousemove', that.boundMouseMove_);
     // * 添加点击事件
     document.addEventListener('click', that.boundMouseClick);
-    // * 打开弹框
+    // * 打开弹框和显示匹配高亮
     xh.openCInputBox();
     that.updateBar_(true);
   }
@@ -739,6 +791,7 @@ xh.Bar.prototype.showBar_ = function() {
   window.setTimeout(impl, 0);
 };
 
+// * 隐藏顶部的显示框
 xh.Bar.prototype.hideBar_ = function() {
   var that = this;
   function impl() {
@@ -758,6 +811,7 @@ xh.Bar.prototype.hideBar_ = function() {
   window.setTimeout(impl, 0);
 };
 
+// * 控制顶部的显示框
 xh.Bar.prototype.toggleBar_ = function() {
   // if (this.hidden_()) {
   if (!this.isOpen_()) {
@@ -769,6 +823,7 @@ xh.Bar.prototype.toggleBar_ = function() {
   }
 };
 
+// * 监听的回调方法
 xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
   if (request.type === 'evaluate') {
     xh.clearHighlights();
@@ -783,7 +838,29 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     window.focus();
   } else if (request.type === 'toggleBar') {
     this.toggleBar_();
+  } else if (request.type === 'previewAndSubmit') {
+    this.previewCssRuleCol();
+  } else if (request.type === 'cancelAll') {
+    this.resetCssRuleCol();
   }
+};
+
+// * 预览css selector合集
+xh.Bar.prototype.previewCssRuleCol = function () {
+  // TODOS
+  /**
+   * 1.创建（如果没有）显示预览专用弹窗实例
+   * 2.列出css selector合集
+   * 3.绑定确认和取消的按钮事件（第一次创建时）
+   */
+}
+
+// * 删除已保存的css selector集合
+xh.Bar.prototype.resetCssRuleCol = function () {
+  xh.cssRuleCol = {};
+  xh.createHint('取消成功');
+  xh.showHint();
+  xh.closeHintDelay(2000);
 };
 
 xh.Bar.prototype.mouseMove_ = function(e) {
@@ -806,10 +883,15 @@ xh.Bar.prototype.keyDown_ = function(e) {
   ) {
     this.toggleBar_();
   }
-  // If the user just pressed Shift and they're not holding Ctrl, update query.
-  // Note that we rely on the mousemove handler to have updated this.currEl_.
-  // Also, note that checking e.shiftKey wouldn't work here, since Shift is the
-  // key that triggered this event.
+  /**
+   * If the user just pressed Shift and they're not holding Ctrl, update query.
+   * Note that we rely on the mousemove handler to have updated this.currEl_.
+   * Also, note that checking e.shiftKey wouldn't work here, since Shift is the
+   * key that triggered this event.
+   * 如果按住shift但没有按住ctrl时，更新query
+   * this.currEl_的更新依赖鼠标移动事件
+   * 并且，注意这里不会触发e.shiftKey
+   */
   if (
     !this.hidden_()
     && !ctrlKey
@@ -820,7 +902,6 @@ xh.Bar.prototype.keyDown_ = function(e) {
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
-  // console.log('e', e);
   let flagPopup = false;
   let domPath = e.path;
   let domPathL = domPath.length;
