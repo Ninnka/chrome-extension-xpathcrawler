@@ -48,13 +48,20 @@ function handleRequest(request, sender, cb) {
         }
       }
       break;
+    case 'getStatus':
+      // sendStatusMsg({
+      //   windowId: request.windowId,
+      //   tabId: request.tabId
+      // });
+      sendStatusMsg();
+      break;
   }
 }
 chrome.runtime.onMessage.addListener(handleRequest);
 
-chrome.browserAction.onClicked.addListener(function(tab) {
-  chrome.tabs.sendMessage(tab.id, {type: 'toggleBar'});
-});
+// chrome.browserAction.onClicked.addListener(function(tab) {
+//   chrome.tabs.sendMessage(tab.id, {type: 'toggleBar'});
+// });
 
 // * 监听chrome的tab更新并更新记录
 function handleTabUpdate (tabId, changeInfo, tab) {
@@ -105,5 +112,14 @@ function initBrowserActionBadgeText () {
 function signedBrowserActionBadgeText () {
   chrome.browserAction.setBadgeText({
     text: "ON"
+  });
+}
+
+function sendStatusMsg (param) {
+  // let { windowId, tabId } = param;
+  let status = openTabCol['windowId' + currentTabObj.windowId] && (openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId) !== -1);
+  chrome.runtime.sendMessage({
+    type: 'getStatus',
+    status
   });
 }
