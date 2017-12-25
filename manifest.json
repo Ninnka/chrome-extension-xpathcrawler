@@ -6,7 +6,8 @@
       "default_icon": {
          "19": "static/icon_19x19.png",
          "38": "static/icon_38x38.png"
-      }
+      },
+      "default_popup": "popup.html"
    },
    "content_scripts": [ {
       "css": [ "content.css" ],
@@ -20,6 +21,9 @@
       "32": "static/icon_32x32.png",
       "48": "static/icon_48x48.png"
    },
+   "permissions": [
+     "tabs"
+   ],
    "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDGn13W8gagw81OGixwgoOt8Nf+F70E9iVghrvge7/ajfbEUsf8avKiWcyopV8yHEjZAnIsUys+k939m0QBBuOb3Ba/skyjooFHgljHbnALMuPzINPhUEk+wuxHWbMiFMSd1w+Bulh6E19BLk2xR31uEKdZTWvKFcaCYKmXN6qkbwIDAQAB",
    "manifest_version": 2,
    "name": "XPath Helper",

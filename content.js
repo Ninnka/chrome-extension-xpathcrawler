@@ -42,7 +42,7 @@ xh.popupTextareaResult = null; // * 弹窗里的result框
 xh.popupButtonConfirm = null;
 xh.popupButtonCancel = null;
 
-xh.IS_OPEN = false;
+xh.IS_OPEN = false; // * 功能是否开启的状态
 
 xh.popupSelectPreset = [
   '预设标题1',
@@ -51,33 +51,13 @@ xh.popupSelectPreset = [
 
 xh.cssRuleCol = {}; // * 保存的xpath合集
 
-xh.hintInsS = `
-  <style>
-    .c-hint--wrapper {
-      position: fixed;
-      width: 100%;
-      min-height: 40px;
-      color: #ffffff;
-      top: 350px;
-      left: 0;
-      text-align: center;
-    }
-    .c-hint {
-      display: inline-block;
-      vertical-align: middle;
-      min-width: 200px;
-      line-height: 40px;
-      background-color: #565656;
-    }
-  </style>
-  <div class="c-hint--wrapper">
-    <div class="c-hint">保存成功</div>
-  </div>
-`
 xh.hintIns = null; // * 操作提示实例
 
 xh.hintDelayIns = null; // * 提示的定时器
 
+xh.previewIns = null; // * 预览窗口的实例
+
+// * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
   var p = primaryEl, s = siblingEl;
   return (p.tagName === s.tagName &&
@@ -85,8 +65,16 @@ xh.elementsShareFamily = function(primaryEl, siblingEl) {
           (!p.id || p.id === s.id));
 };
 
+// * CSS Selector使用
+xh.elementsShareFamilyCss = function (primaryEl, siblingEl) {
+  // * CSS选择器部分暂时只用tag名是否相等来判断子元素们是否享有公用的父元素
+  let p = primaryEl, s = siblingEl;
+  return p.tagName === s.tagName;
+}
+
+// * Xpath使用
 xh.getElementIndex = function(el) {
-  var index = 1;  // XPath is one-indexed
+  var index = 1;
   var sib;
   for (sib = el.previousSibling; sib; sib = sib.previousSibling) {
     if (sib.nodeType === Node.ELEMENT_NODE && xh.elementsShareFamily(el, sib)) {
@@ -104,28 +92,90 @@ xh.getElementIndex = function(el) {
   return 0;
 };
 
-// * 创建xpath
+// * CSS Selector使用
+xh.getElementIndexCss = function (el) {
+  let index = 1;
+  let sib;
+  for (sib = el.previousSibling; sib; sib = sib.previousSibling) {
+    if (sib.nodeType === Node.ELEMENT_NODE) {
+      index++;
+    }
+  }
+  if (index > 1) {
+    return index;
+  }
+  for (sib = el.nextSibling; sib; sib = sib.nextSibling) {
+    if (sib.nodeType === Node.ELEMENT_NODE) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+// * 创建xpath和css selector
 xh.makeQueryForElement = function(el) {
-  var query = '';
-  for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
-    var component = el.tagName.toLowerCase();
-    var index = xh.getElementIndex(el);
+  let query = '';
+  let queryCss = '';
+  let hasBreak = false;
+  for (; ; ) {
+    // * null
+    if (!el) {
+      break;
+    }
+    // * 不满足条件则进行下一次匹配
+    if (!(el && el.nodeType === Node.ELEMENT_NODE)) {
+      hasBreak = true;
+      el = el.parentNode;
+      continue;
+    }
+    let component = el.tagName.toLowerCase();
+    let componentCss = el.tagName.toLowerCase(); // *
+    let index = xh.getElementIndex(el);
+    let indexCss = xh.getElementIndexCss(el); // *
     if (el.id) {
       component += '[@id=\'' + el.id + '\']';
+      componentCss += '[id=\'' + el.id + '\']'; // *
     } else if (el.className) {
       component += '[@class=\'' + el.className + '\']';
+      // * css seletor的class用经过刷选处理，目前最多只留下一个class名
+      componentCss += '[class*=\'' + xh.cssClassOptimization(el.className.trim()) + '\']';
     }
     if (index >= 1) {
       component += '[' + index + ']';
     }
-    // If the last tag is an img, the user probably wants img/@src.
-    if (query === '' && el.tagName.toLowerCase() === 'img') {
-      component += '/@src';
+    // * css selector部分专用
+    if (indexCss >= 1 && queryCss === '') {
+      componentCss += ':nth-child(' + indexCss + ')';
     }
-    query = '/' + component + query;
+    // * 如果最后的元素是img，生成xpath需要"img/@src"
+    if (query === '' && el.tagName.toLowerCase() === 'img') {
+      component += '~/~@src'; // * 替换了分隔符
+    }
+    if (queryCss === '' && el.tagName.toLowerCase() === 'img') {
+      componentCss += '[src]'; // *
+    }
+    query = '~/~' + component + query; // * 替换了分隔符
+    // * 判断是否为直接子元素
+    if (queryCss !== '' && !hasBreak) {
+      hasBreak = false;
+      queryCss = ' >' + queryCss;
+    }
+    queryCss = ' ' + componentCss + queryCss; // *
+    el = el.parentNode;
   }
-  return query;
+  return {
+    query,
+    queryCss: queryCss.trim()
+  };
 };
+
+xh.cssClassOptimization = function (className) {
+  let classArr = className.split(' ');
+  return classArr[0];
+  // if (classArr.length >= 1) {
+    
+  // }
+}
 
 xh.highlight = function(els) {
   for (var i = 0, l = els.length; i < l; i++) {
@@ -135,12 +185,18 @@ xh.highlight = function(els) {
 
 // * 转为xpath为css规则
 xh.xpathToCssRule = function (query) {
-  var queryArr = query.split('/');
+  var queryArr = query.split('~/~'); // * 使用新的分隔符
   var newQuery = '';
   queryArr.forEach(function (ele, index, arr) {
-    if(ele.indexOf('[') === -1 && xh.withoutExcludeKey(ele)) {
+    if (
+      ele.indexOf('[') === -1
+      && xh.withoutExcludeKey(ele)
+    ) {
       newQuery = newQuery + ' ' + ele.trim();
-    } else if (ele !== '' && ele.indexOf('[') !== -1) {
+    } else if (
+      ele !== ''
+      && ele.indexOf('[') !== -1
+    ) {
       let withoutDel = ele.substring(0, ele.indexOf('['));
       let delStringOnly = ele.substring(ele.indexOf('['));
       let splitRes = xh.regDelimiter(delStringOnly.trim());
@@ -153,26 +209,8 @@ xh.xpathToCssRule = function (query) {
 // * 全局匹配css规则
 xh.splitQuery = function (query) {
   // console.log('splitQuery');
-  if (!query) {
-    return;
-  }
-  console.log('query', query);
-  // var queryArr = query.split('/');
-  // var newQuery = '';
-  // queryArr.forEach(function (ele, index, arr) {
-  //   if(ele.indexOf('[') === -1 && xh.withoutExcludeKey(ele)) {
-  //     newQuery = newQuery + ' ' + ele.trim();
-  //   } else if (ele !== '' && ele.indexOf('[') !== -1) {
-  //     let withoutDel = ele.substring(0, ele.indexOf('['));
-  //     let delStringOnly = ele.substring(ele.indexOf('['));
-  //     let splitRes = xh.regDelimiter(delStringOnly.trim());
-  //     newQuery = newQuery + ' ' + withoutDel + splitRes;
-  //   }
-  // });
-  var newQuery = xh.xpathToCssRule(query);
-  console.log('newQueryFinally', newQuery.trim());
-  if (newQuery) {
-    var matchDomArr = document.querySelectorAll(newQuery);
+  if (query) {
+    var matchDomArr = document.querySelectorAll(query);
     xh.highlight(matchDomArr);
   }
 }
@@ -194,7 +232,11 @@ xh.regDelimiter = function (ele) {
   
   while (regRes && regRes.lastIndex !== 0) {
     let tmpS = regRes[1];
-    if (tmpS.indexOf('=') !== -1 && xh.withoutExcludeKey(tmpS) && !xh.checkChildOrder(tmpS)) {
+    if (
+      tmpS.indexOf('=') !== -1
+      && xh.withoutExcludeKey(tmpS)
+      && !xh.checkChildOrder(tmpS)
+    ) {
       let tmpSR = tmpS.replace('@', '');
       res = res + tmpSR.trim();
       // console.log('tmp res', res);
@@ -206,8 +248,11 @@ xh.regDelimiter = function (ele) {
       // res = res + tmpSR.trim();
       res = res + "[class*='" + tmpSRArr[0] + "']";
       // console.log('tmp res class pattern', res);
-    } else if (xh.checkChildOrder(tmpS) && xh.CONTAIN_SLI) {
-      res = res + ':nth-child('+ tmpS.substring(1, tmpS.length - 1) + ')';
+    } else if (
+      xh.checkChildOrder(tmpS)
+      && xh.CONTAIN_SLI
+    ) {
+      res = res + ':nth-of-type('+ tmpS.substring(1, tmpS.length - 1) + ')';
     }
     regRes = reg.exec(ele);
   }
@@ -228,9 +273,12 @@ xh.withoutExcludeKey = function (ele) {
 // * 判断父级是否有a标签
 xh.checkParentHref = function (e) {
   const parent = e.target ? e.target.parentNode : e.parentNode;
-  if (parent.tagName === 'A'
-  && parent.childNodes
-  && parent.childNodes.length === 1) {
+  if (
+    parent
+    && parent.tagName === 'A'
+  // && parent.childNodes
+  // && parent.childNodes.length === 1
+  ) {
     return true;
   } else {
     return false;
@@ -247,7 +295,6 @@ xh.keyList = [
 
 xh.addPrevent = (event) => {
   // event.preventDefault();
-  console.log('event', event);
   if (event.target.tagName === 'A') {
     event.preventDefault();
   }
@@ -269,27 +316,230 @@ xh.unPreventHref = () => {
   document.removeEventListener('click', xh.addPrevent);
 }
 
-xh.clearHighlights = function() {
+xh.clearHighlights = function () {
   var els = document.querySelectorAll('.xh-highlight');
   for (var i = 0, l = els.length; i < l; i++) {
     els[i].classList.remove('xh-highlight');
   }
 };
 
-xh.createHint = function () {
-  xh.hintIns = document.createElement('div');
-  xh.hintIns.innerHTML = xh.hintInsS;
-  document.body.appendChild(xh.hintIns);
+xh.getPreviewInsTemplateString = function () {
+  return `
+    <style>
+      .c-preview-wrapper {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        z-index: 1000000;
+      }
+      .c-preview-wrapper .c-preview-content {
+        background: #ffffff;
+        width: 60%;
+        min-width: 500px;
+        height: 600px;
+        box-shadow: 0px 0px 10px #000;
+      }
+      .c-preview-close{
+        cursor: pointer;
+        position: absolute;
+        width: 50px;
+        height: 35px;
+        line-height: 35px;
+        top: 3px;
+        right: 0;
+        font-size: 20px;
+        line-height: 35px;
+      }
+      .c-preview-wrapper .c-preview-title {
+        margin: 0;
+        padding: 10px;
+        background: rgb(180, 185, 191);
+        position: relative;
+      }
+      .c-preview-data {
+        background: rgb(236, 236, 236);
+        height: 70%;
+        width: 90%;
+        margin: 20px auto;
+        overflow: auto;
+        text-align: left;
+      }
+      .c-previwe-bottons {
+        margin-top: 20px;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+      }
+      .c-previwe-button { 
+        cursor: pointer;
+        padding: .5em 2em .55em;  
+        text-shadow: 0 1px 1px rgba(0,0,0,.3);  
+        border-radius: .5em;  
+        box-shadow: 0 1px 2px rgba(0,0,0,.2);  
+      }
+      
+      /* blue */
+      .c-previwe-button.blue {  
+        color: #d9eef7;  
+        background: #0095cd;
+      }
+      .c-previwe-button.blue:hover {  
+        background: #007ead;
+      }
+      .c-previwe-button.blue:active {  
+        color: #80bed6;
+      }
+      /* white */
+      .c-previwe-button.white {  
+        color: #606060;  
+        background: #dadada;
+      }  
+      .c-previwe-button.white:hover {  
+        background: #ededed;
+      }
+      .c-previwe-button.white:active {  
+        color: #999;
+      }
+    </style>
+  `
+    +
+  `
+    <div id="c-preview-wrapper" class="c-preview-wrapper">
+      <div class="c-preview-content">
+        <p class="c-preview-title">数据预览<span id="c-preview-close" class="c-preview-close">X</span></p>
+        <pre id="c-preview-data" class="c-preview-data"></pre>
+        <div class="c-previwe-bottons">
+          <div id="c-preview-button-cancel" class="c-previwe-button white">取消</div>
+          <div id="c-preview-button-submit" class="c-previwe-button blue">提交</div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
+xh.previewRquest = function () {
+  if (!xh.previewIns) {
+    xh.createPreviewIns();
+    xh.bindPreviewListener();
+    xh.setPreviewData();
+  } else {
+    xh.showPreview();
+    xh.setPreviewData();
+  }
+}
+
+xh.showPreview = function () {
+  xh.previewIns && (xh.previewIns.style.display = 'block');
+}
+
+xh.closePreview = function () {
+  xh.previewIns && (xh.previewIns.style.display = 'none');
+}
+
+xh.submitData = function () {
+  // TODOS
+  /**
+   * 提交数据
+   */
+}
+
+xh.createPreviewIns = function () {
+  if (!xh.previewIns) {
+    xh.previewIns = document.createElement('div');
+  }
+  xh.previewIns.innerHTML = xh.getPreviewInsTemplateString();
+  if (xh.docuBody === null) {
+    xh.docuBody = document.querySelector('body');
+  }
+  xh.docuBody.appendChild(xh.previewIns);
+}
+
+xh.bindPreviewListener = function () {
+  if (xh.previewIns) {
+    // * 关闭按钮
+    let closeIns = xh.previewIns.querySelector('#c-preview-close');
+    closeIns.addEventListener('click', xh.closePreview);
+  
+    // * 确认按钮
+    xh.previewIns.querySelector('#c-preview-button-submit').addEventListener('click', xh.submitData);
+  
+    // * 取消按钮
+    xh.previewIns.querySelector('#c-preview-button-cancel').addEventListener('click', xh.closePreview);
+  }
+}
+
+xh.setPreviewData = function () {
+  if (xh.previewIns) {
+    let previewData = JSON.stringify(xh.cssRuleCol, null, 2);
+    console.log('previewData', previewData);
+    xh.previewIns.querySelector('#c-preview-data').innerHTML = previewData;
+  }
+}
+
+xh.getHintInsTemplateString = function (text) {
+  return `
+    <style>
+      .c-hint--wrapper {
+        position: fixed;
+        width: 100%;
+        min-height: 40px;
+        color: #ffffff;
+        top: 100px;
+        left: 0;
+        text-align: center;
+        background: transparent;
+        z-index: 99999;
+      }
+      .c-hint {
+        box-shadow: 0px 1px 5px 0 #bbb;
+        transform: translateZ(4px);
+        display: inline-block;
+        vertical-align: middle;
+        min-width: 200px;
+        line-height: 40px;
+        background-color: #67c23a;
+      }
+    </style>
+    <div class="c-hint--wrapper">
+      <div class="c-hint">${text}</div>
+    </div>
+  `;
+}
+
+/**
+ * 创建提示框的实例
+ * @param {String} text 需要显示的文本
+ */
+xh.createHint = function (text) {
+  if (!xh.hintIns) {
+    xh.hintIns = document.createElement('div');
+  }
+  xh.hintIns.innerHTML = xh.getHintInsTemplateString(text);
+  if (xh.docuBody === null) {
+    xh.docuBody = document.querySelector('body');
+  }
+  xh.docuBody.appendChild(xh.hintIns);
+}
+
+// * 显示提示框
 xh.showHint = function () {
   xh.hintIns && (xh.hintIns.style.display = 'block');
 }
 
+// * 隐藏提示框
 xh.hideHint = function () {
   xh.hintIns && (xh.hintIns.style.display = 'none');
 }
 
+// * 延迟关闭提示框
 xh.closeHintDelay = function (delay) {
   if (xh.hintDelayIns) {
     window.clearTimeout(xh.hintDelayIns);
@@ -300,8 +550,9 @@ xh.closeHintDelay = function (delay) {
   }, delay);
 }
 
+// * 弹窗确认按钮的回调方法
 xh.confirmSavePath = function (data) {
-  console.log('confirmSavePath', data);
+  console.log('confirm', data);
   /**
    * DONE:
    * 保存path
@@ -319,15 +570,17 @@ xh.confirmSavePath = function (data) {
   // console.log('xh.cssRuleCol', xh.cssRuleCol);
   xh.closeCInputBox();
   xh.clearHighlights();
-  if (xh.hintIns) {
-    xh.showHint();
-    xh.closeHintDelay(2500);
-  } else {
-    xh.createHint();
-    xh.showHint();
-    xh.closeHintDelay(2500);
-  }
-  console.log('xh.cssRuleCol', xh.cssRuleCol);
+  // if (xh.hintIns) {
+  //   xh.showHint();
+  //   xh.closeHintDelay(2500);
+  // } else {
+  xh.createHint('保存成功');
+  xh.showHint();
+  xh.closeHintDelay(2000);
+  // }
+  console.log('cssRuleCol', xh.cssRuleCol);
+  // * 测试预览功能
+  // xh.previewRquest();
 }
 
 // * 计算当前元素的位置
@@ -349,14 +602,17 @@ xh.calcEleRoundPosAvalid = function (e) {
   const x = xhBarInstance.currElPos.x;
   const y = xhBarInstance.currElPos.y;
   // * 判断上方的位置
-  if (y > 420 + 90) {
+  if (y > 400 + 20 + 90) {
     xhBarInstance.popupPos = {
-      x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
-      y: y - 420
+      x: x > 200 + 20 ? (documentW - x > 200 + 20 ? x - 200 : x - 400) : x,
+      y: y - 400 - 20
     }
-  } else if ((y > 420 && y < 420 + 90) || documentH - y > 420) {
+  } else if (
+    (y > 400 + 20 && y < 400 + 20 + 90)
+    || documentH - y > 400 + 20
+  ) {
     xhBarInstance.popupPos = {
-      x: x > 220 ? (documentW - x > 220 ? x - 200 : x - 400) : x,
+      x: x > 200 + 20 ? (documentW - x > 200 + 20 ? x - 200 : x - 400) : x,
       y: y + 30
     }
   } else {
@@ -382,17 +638,20 @@ xh.popupOtherInputChange = function (e) {
   // console.log('popupOtherInputChange', e);
 }
 
+// * 关闭弹窗
 xh.closeCInputBox = function () {
-  xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'none');
+  xh.divTmp && (xh.divTmp.style.display = 'none');
 }
 
+// * 取消按钮的回调事件
 xh.cancelInputBox = function () {
   xh.closeCInputBox();
   xh.clearHighlights();
 }
 
+// * 打开弹窗
 xh.openCInputBox = function () {
-  xh.divTmp && (xh.divTmp.querySelector('#c-input-box').style.display = 'block');
+  xh.divTmp && (xh.divTmp.style.display = 'block');
 }
 
 // * 创建弹框实例和定位弹框实例
@@ -404,7 +663,7 @@ xh.fixingPopup = function (toggle, param) {
     xh.docuBody.removeChild(xh.divTmp);
   }
   if (xhBarInstance.popupPos) {
-    let isShow = toggle ? 'block' : 'none';
+    // let isShow = toggle ? 'flex' : 'none';
     xh.divTmp = document.createElement('div');
     let popupDomS = 
       `
@@ -413,36 +672,45 @@ xh.fixingPopup = function (toggle, param) {
             position: fixed;
             width: 400px;
             min-height: 400px;
-            // background-color: red;
-            display: ${isShow};
+            display: flex;
             top: ${xhBarInstance.popupPos.y}px;
             left: ${xhBarInstance.popupPos.x}px;
             z-index: 99999;
             text-align: center;
             box-sizing: border-box;
             padding: 12px;
-            box-shadow: 0px 0px 0 2px #bbb;
-            border: 1px solid #bbb;
+            box-shadow: 0px 1px 5px 0 #bbb;
             background-color: #FAFAFA;
+            align-items: center;
+            transform: translateZ(3px);
+          }
+          #c-input-box .select-input--wrapper {
+            width: 100%;
           }
           #c-input-box select {
             width: 80%;
             height: 40px;
-            border: 1px solid #bbb;
-            margin-bottom: 10px;
+            border: none;
+            box-shadow: 0px 1px 5px 0 #bbb;
+            margin-bottom: 20px;
           }
           #c-input-box #popupOtherInput {
             width: 80%;
-            margin: 10px auto;
+            margin: 0 auto 20px;
             box-sizing: border-box;
+            border: none;
+            box-shadow: 0px 1px 5px 0 #bbb;
           }
           #c-input-box textarea {
             resize: none;
+            border: none;
             width: 80%;
-            margin: 0 auto 10px;
+            margin: 0 auto 20px;
             height: 60px;
             overflow-y: auto;
             box-sizing: border-box;
+            box-shadow: 0px 1px 5px 0 #bbb;
+            vertical-align: middle;
           }
           #c-input-box .c-buttons {
             width: 80%;
@@ -452,7 +720,7 @@ xh.fixingPopup = function (toggle, param) {
             justify-content: center;
           }
           .c-buttons div {
-            border-radius: 8px;
+            border-radius: 4px;
             flex-grow: 0;
             flex-shrink: 1;
             width: 100px;
@@ -462,10 +730,11 @@ xh.fixingPopup = function (toggle, param) {
             margin: 0 30px;
           }
           .c-buttons div:nth-child(1) {
-            background-color: #565656;
+            background-color: #bababa;
           }
           .c-buttons div:nth-child(2) {
-            background-color: #565656;
+            color: #d9eef7;  
+            background: #0095cd;
           }
         </style>
       `
@@ -494,7 +763,7 @@ xh.fixingPopup = function (toggle, param) {
       `;
     xh.divTmp.innerHTML = popupDomS;
 
-    xh.openCInputBox();
+    // xh.openCInputBox();
 
     // * 保存popup的select和添加事件
     xh.popupSelect = xh.divTmp.querySelector('#symbomSelect');
@@ -508,7 +777,7 @@ xh.fixingPopup = function (toggle, param) {
     xh.popupTextareaXpath = xh.divTmp.querySelector('#popupTextareaXpath');
     xh.popupTextareaResult = xh.divTmp.querySelector('#popupTextareaResult');
 
-    xh.popupTextareaXpath.value = toggle ? xpath : '';
+    xh.popupTextareaXpath.value = toggle ? xh.transformSpeQueryToOldQuery(xpath) : '';
     xh.popupTextareaResult.value = toggle ? resultStr : '';
 
     // * 保存按钮
@@ -520,7 +789,7 @@ xh.fixingPopup = function (toggle, param) {
       let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
       xh.confirmSavePath({
         title: title,
-        cssSelector: xh.cssRuleOptimization(xpath)
+        cssSelector: (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim()
       });
     });
     
@@ -528,28 +797,23 @@ xh.fixingPopup = function (toggle, param) {
       xh.docuBody = document.querySelector('body');
     }
     xh.docuBody.appendChild(xh.divTmp);
-
-    // chrome.runtime.sendMessage({
-    //   type: 'fixingPopup',
-    //   query: {
-    //     show: true,
-    //     x: xhBarInstance.popupPos.x,
-    //     y: xhBarInstance.popupPos.y
-    //   },
-    //   results: null
-    // });
   }
 }
 
+// * 将新分隔符版本的xpath转为正式版本的xpath
+xh.transformSpeQueryToOldQuery = function (querySpe) {
+  return querySpe.replace(/~\/~/g, '/');
+}
+
 // * css优化到最小范围
-xh.cssRuleOptimization = function (xpath) {
+xh.cssRuleOptimization = function (query) {
   /**
    * DONE:
    * 1：判断是否有id，没有的话返回原样
    * 2：判断最后一个id所在位置
    * 3：移除最后一个id之前的所有规则
    */
-  let cssRuleOrigin = xh.xpathToCssRule(xpath);
+  let cssRuleOrigin = query;
   let regId = /(id=)/g;
   if (!regId.test(cssRuleOrigin)) {
     return cssRuleOrigin;
@@ -623,14 +887,14 @@ xh.evaluateQuery = function(query) {
     nodeCount = 0;
   }
 
-  xh.highlight(toHighlight);
+  // xh.highlight(toHighlight);
 
-  // * 进行全局匹配
-  xh.splitQuery(query);
+  // * 进行全局匹配，使用css selector
+  xh.splitQuery(xhBarInstance.queryCssSelector);
   
   // * 发送消息
   xh.fixingPopup(true, {
-    xpath: query,
+    xpath: xhBarInstance.queryNewSpe_, // * 使用新分隔符的xpath
     resultStr: str
   });
   return [str, nodeCount];
@@ -651,6 +915,11 @@ xh.Bar = function () {
   this.currElPos = null;
   this.popupPos = null;
 
+  // * 使用新分隔符的query
+  this.queryNewSpe_ = null;
+  // * css selector
+  this.queryCssSelector = null;
+
   // this.barFrame_ = document.createElement('iframe');
   // this.barFrame_.src = chrome.runtime.getURL('bar.html');
   // this.barFrame_.id = 'xh-bar';
@@ -665,14 +934,24 @@ xh.Bar.prototype.hidden_ = function() {
   // return this.barFrame_.classList.contains('hidden');
 };
 
+// * 功能是否已经打开
 xh.Bar.prototype.isOpen_ = function () {
   return xh.IS_OPEN;
 }
 
+// * 更新xpath和css selector，并更新顶部的显示框（显示框已删除）
 xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   xh.clearHighlights();
-  this.query_ = el ? xh.makeQueryForElement(el) : '';
-  console.log('this.query_ ', this.query_ );
+  let queryObj = null;
+  if (el) {
+    queryObj = xh.makeQueryForElement(el);
+  }
+  this.queryNewSpe_ = queryObj ? queryObj.query : '';
+  this.queryCssSelector = queryObj ? queryObj.queryCss : '';
+  console.log('queryCssSelector:', this.queryCssSelector);
+  this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
+  console.log('query_:', this.query_);
+  // console.log(' updateQueryAndBar_ this.query_ ', this.query_ );
   this.updateBar_(true);
 };
 
@@ -686,6 +965,7 @@ xh.Bar.prototype.updateBar_ = function(updateQuery) {
   // });
 };
 
+// * 显示顶部的显示框
 xh.Bar.prototype.showBar_ = function() {
   var that = this;
   function impl() {
@@ -698,10 +978,9 @@ xh.Bar.prototype.showBar_ = function() {
     document.addEventListener('mousemove', that.boundMouseMove_);
     // * 添加点击事件
     document.addEventListener('click', that.boundMouseClick);
-    // * 打开弹框
-    xh.openCInputBox();
-    that.updateBar_(true);
-    console.log('showBar');
+    // * 打开弹框和显示匹配高亮(还原上次的操作状态)
+    // xh.openCInputBox();
+    // that.updateBar_(true);
   }
   // ! 判断bar.html是否在DOM里
   if (!this.inDOM_) {
@@ -711,6 +990,7 @@ xh.Bar.prototype.showBar_ = function() {
   window.setTimeout(impl, 0);
 };
 
+// * 隐藏顶部的显示框
 xh.Bar.prototype.hideBar_ = function() {
   var that = this;
   function impl() {
@@ -730,6 +1010,7 @@ xh.Bar.prototype.hideBar_ = function() {
   window.setTimeout(impl, 0);
 };
 
+// * 控制顶部的显示框
 xh.Bar.prototype.toggleBar_ = function() {
   // if (this.hidden_()) {
   if (!this.isOpen_()) {
@@ -741,6 +1022,7 @@ xh.Bar.prototype.toggleBar_ = function() {
   }
 };
 
+// * 监听的回调方法
 xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
   if (request.type === 'evaluate') {
     xh.clearHighlights();
@@ -755,7 +1037,30 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     window.focus();
   } else if (request.type === 'toggleBar') {
     this.toggleBar_();
+  } else if (request.type === 'previewAndSubmit') {
+    this.previewCssRuleCol();
+  } else if (request.type === 'cancelAll') {
+    this.resetCssRuleCol();
   }
+};
+
+// * 预览css selector合集
+xh.Bar.prototype.previewCssRuleCol = function () {
+  if (Object.keys(xh.cssRuleCol).length > 0) {
+    xh.previewRquest();
+  } else {
+    xh.createHint('暂无数据，请添加数据');
+    xh.showHint();
+    xh.closeHintDelay(2000);
+  }
+}
+
+// * 删除已保存的css selector集合
+xh.Bar.prototype.resetCssRuleCol = function () {
+  xh.cssRuleCol = {};
+  xh.createHint('取消成功');
+  xh.showHint();
+  xh.closeHintDelay(2000);
 };
 
 xh.Bar.prototype.mouseMove_ = function(e) {
@@ -771,30 +1076,68 @@ xh.Bar.prototype.mouseMove_ = function(e) {
 xh.Bar.prototype.keyDown_ = function(e) {
   var ctrlKey = e.ctrlKey || e.metaKey;
   var shiftKey = e.shiftKey;
-  if (e.keyCode === xh.X_KEYCODE && ctrlKey && shiftKey) {
+  if (
+    e.keyCode === xh.X_KEYCODE
+    && ctrlKey
+    && shiftKey
+  ) {
     this.toggleBar_();
   }
-  // If the user just pressed Shift and they're not holding Ctrl, update query.
-  // Note that we rely on the mousemove handler to have updated this.currEl_.
-  // Also, note that checking e.shiftKey wouldn't work here, since Shift is the
-  // key that triggered this event.
-  if (!this.hidden_() && !ctrlKey && e.keyCode === xh.SHIFT_KEYCODE) {
+  /**
+   * If the user just pressed Shift and they're not holding Ctrl, update query.
+   * Note that we rely on the mousemove handler to have updated this.currEl_.
+   * Also, note that checking e.shiftKey wouldn't work here, since Shift is the
+   * key that triggered this event.
+   * 如果按住shift但没有按住ctrl时，更新query
+   * this.currEl_的更新依赖鼠标移动事件
+   * 并且，注意这里不会触发e.shiftKey
+   */
+  if (
+    !this.hidden_()
+    && !ctrlKey
+    && e.keyCode === xh.SHIFT_KEYCODE
+  ) {
     this.updateQueryAndBar_(this.currEl_);
   }
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
-  console.log('e', e);
-  let flagPopup = false;
+  // console.log('e', e);
+  let flagStop = false;
   let domPath = e.path;
   let domPathL = domPath.length;
+  // * 阻止冒泡
   for (let i = 0; i < domPathL; i++) {
-    if (domPath[i] && domPath[i].id && domPath[i].id.indexOf('c-input-box') !== -1) {
+    if (
+      domPath[i]
+      && domPath[i].id
+      && domPath[i].id.indexOf('c-input-box') !== -1
+    ) {
+      // * id中有c-input-box
       e.stopPropagation();
-      flagPopup = true;
+      flagStop = true;
+      break;
+    } else if (
+      domPath[i]
+      && domPath[i].id
+      && domPath[i].id.indexOf('c-preview-wrapper') !== -1
+    ) {
+      // * id中有c-preview-wrapper
+      e.stopPropagation();
+      flagStop = true;
+      break;
+    } else if (
+      // * class中有c-hint--wrappe
+      domPath[i]
+      && domPath[i].className
+      && domPath[i].className.indexOf('c-hint--wrapper') !== -1
+    ) {
+      e.stopPropagation();
+      flagStop = true;
       break;
     }
   }
+  // * 阻止a标签默认事件
   if (e.target.tagName === 'A') {
     e.preventDefault();
   } else if (xh.checkParentHref(e)) {
@@ -802,12 +1145,15 @@ xh.Bar.prototype.mouseClick_ = function (e) {
   } else if (xh.checkParentHref(e.target.parentNode)) {
     e.preventDefault();
   }
-  // console.log('flagPopup', flagPopup);
-  if (this.currEl_ && !flagPopup) {
+  // * 如果已经获取到元素并且没有被阻止冒泡则显示弹框
+  if (
+    this.currEl_
+    && !flagStop
+  ) {
     // * 计算当前元素的位置与周围可用的空间
     xh.calcTargetElePos(e);
     xh.calcEleRoundPosAvalid();
-    // * 更新显示的结果，获取xpath
+    // * 更新显示的结果，获取xpath和css selector
     this.updateQueryAndBar_(this.currEl_);
   }
 }
