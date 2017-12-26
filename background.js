@@ -27,7 +27,7 @@ let currentTabObj = {}; // * 当前的tab页面对象
 // * 监听contentjs发出的事件
 function handleRequest(request, sender, cb) {
   // Simply relay the request. This lets content.js talk to bar.js.
-  chrome.tabs.sendMessage(sender.tab.id, request, cb);
+  // chrome.tabs.sendMessage(sender.tab.id, request, cb);
   let { type } = request;
   switch (type) {
     case 'open':
@@ -38,6 +38,7 @@ function handleRequest(request, sender, cb) {
         openTabCol['windowId' + currentTabObj.windowId] = [];
         openTabCol['windowId' + currentTabObj.windowId].push(currentTabObj.tabId);
       }
+      sendStatusMsg();
       break;
     case 'close':
       initBrowserActionBadgeText();
@@ -47,14 +48,21 @@ function handleRequest(request, sender, cb) {
           openTabCol['windowId' + currentTabObj.windowId].splice(i, 1);
         }
       }
+      sendStatusMsg();
+      break;
+    case 'getStatus':
+      sendStatusMsg({
+        windowId: request.windowId,
+        tabId: request.tabId
+      });
       break;
   }
 }
 chrome.runtime.onMessage.addListener(handleRequest);
 
-chrome.browserAction.onClicked.addListener(function(tab) {
-  chrome.tabs.sendMessage(tab.id, {type: 'toggleBar'});
-});
+// chrome.browserAction.onClicked.addListener(function(tab) {
+//   chrome.tabs.sendMessage(tab.id, {type: 'toggleBar'});
+// });
 
 // * 监听chrome的tab更新并更新记录
 function handleTabUpdate (tabId, changeInfo, tab) {
@@ -105,5 +113,15 @@ function initBrowserActionBadgeText () {
 function signedBrowserActionBadgeText () {
   chrome.browserAction.setBadgeText({
     text: "ON"
+  });
+}
+
+function sendStatusMsg (param) {
+  // let { windowId, tabId } = param;
+  param = param ? param : currentTabObj;
+  let status = openTabCol['windowId' + param.windowId] && (openTabCol['windowId' + param.windowId].indexOf(param.tabId) !== -1);
+  chrome.runtime.sendMessage({
+    type: 'reponseStatus',
+    status
   });
 }

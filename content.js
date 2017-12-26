@@ -32,6 +32,11 @@ xh.X_KEYCODE = 88; // * x字符
 xh.CONTAIN_SLI = true; // * 限制是否使用元素在同级的序号作为匹配的关键词
 xh.CLASS_LIMIT = 1; // * 限制匹配关键词中所使用的class的个数
 
+xh.TYPE_STRING = 'string';
+xh.TYPE_NUMBER = 'number';
+xh.TYPE_ARRAY = 'array';
+xh.TYPE_OBJECT = 'object';
+
 xh.docuBody = null; // * body对象
 xh.divTmp = null; // * 弹窗对象
 xh.popupSelect = null; // * 弹窗里的select
@@ -47,7 +52,7 @@ xh.IS_OPEN = false; // * 功能是否开启的状态
 xh.popupSelectPreset = [
   '预设标题1',
   '预设标题2'
-]
+];
 
 xh.cssRuleCol = {}; // * 保存的xpath合集
 
@@ -56,6 +61,8 @@ xh.hintIns = null; // * 操作提示实例
 xh.hintDelayIns = null; // * 提示的定时器
 
 xh.previewIns = null; // * 预览窗口的实例
+
+xh.currentSeletorType = xh.TYPE_STRING;
 
 // * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
@@ -117,6 +124,16 @@ xh.makeQueryForElement = function(el) {
   let query = '';
   let queryCss = '';
   let hasBreak = false;
+  // console.log('el.textContent', el.textContent);
+  // * (暂定)此处判断type
+  let elChildNodes = el.childNodes;
+  console.log('elChildNodes', elChildNodes);
+  if (
+    ( xh.formElementCondi(el.tagName) && !isNaN(Number(xh.getElementValue(el))) )
+    || ( elChildNodes && elChildNodes.length === 1 && elChildNodes[0].nodeName === '#text' && !isNaN(Number(elChildNodes[0].nodeValue)) )
+  ) {
+    xh.currentSeletorType = xh.TYPE_NUMBER;
+  }
   for (; ; ) {
     // * null
     if (!el) {
@@ -143,8 +160,8 @@ xh.makeQueryForElement = function(el) {
     if (index >= 1) {
       component += '[' + index + ']';
     }
-    // * css selector部分专用
-    if (indexCss >= 1 && queryCss === '') {
+    // * css selector部分专用(暂时为严格匹配)
+    if (indexCss >= 1) {
       componentCss += ':nth-child(' + indexCss + ')';
     }
     // * 如果最后的元素是img，生成xpath需要"img/@src"
@@ -172,9 +189,6 @@ xh.makeQueryForElement = function(el) {
 xh.cssClassOptimization = function (className) {
   let classArr = className.split(' ');
   return classArr[0];
-  // if (classArr.length >= 1) {
-    
-  // }
 }
 
 xh.highlight = function(els) {
@@ -371,6 +385,8 @@ xh.getPreviewInsTemplateString = function () {
         margin: 20px auto;
         overflow: auto;
         text-align: left;
+        color: #080 !important;
+        line-height: 1.3;
       }
       .c-previwe-bottons {
         margin-top: 20px;
@@ -425,6 +441,7 @@ xh.getPreviewInsTemplateString = function () {
   `;
 }
 
+// * 打开预览的流程控制
 xh.previewRquest = function () {
   if (!xh.previewIns) {
     xh.createPreviewIns();
@@ -436,21 +453,30 @@ xh.previewRquest = function () {
   }
 }
 
+// * 显示预览窗口
 xh.showPreview = function () {
   xh.previewIns && (xh.previewIns.style.display = 'block');
 }
 
+// * 关闭预览窗口
 xh.closePreview = function () {
   xh.previewIns && (xh.previewIns.style.display = 'none');
 }
 
+// * 提交按钮的回调
 xh.submitData = function () {
   // TODOS
   /**
    * 提交数据
    */
+  console.log('提交数据');
+  xh.closePreview();
+  xh.createHint('提交成功（假）');
+  xh.showHint();
+  xh.closeHintDelay(2000);
 }
 
+// * 创建预览窗口的实例
 xh.createPreviewIns = function () {
   if (!xh.previewIns) {
     xh.previewIns = document.createElement('div');
@@ -462,6 +488,7 @@ xh.createPreviewIns = function () {
   xh.docuBody.appendChild(xh.previewIns);
 }
 
+// * 绑定预览窗口内的事件
 xh.bindPreviewListener = function () {
   if (xh.previewIns) {
     // * 关闭按钮
@@ -479,21 +506,38 @@ xh.bindPreviewListener = function () {
 xh.setPreviewData = function () {
   if (xh.previewIns) {
     let previewData = JSON.stringify(xh.cssRuleCol, null, 2);
-    console.log('previewData', previewData);
+    // console.log('previewData', previewData);
     xh.previewIns.querySelector('#c-preview-data').innerHTML = previewData;
   }
 }
 
-xh.getHintInsTemplateString = function (text) {
+xh.getHintInsTemplateString = function (param) {
+  let { text, type } = param;
+  type = type ? type : 'success';
+  let backgroundColor = '#67c23a';
+  switch (type) {
+    case 'success':
+      backgroundColor = '#67c23a';
+      break;
+    case 'warning':
+      backgroundColor = '#e6a23c';
+      break;
+    case 'error':
+      backgroundColor = '#f56c6c';
+      break;
+    default:
+      backgroundColor = '#67c23a';
+  }
   return `
     <style>
       .c-hint--wrapper {
         position: fixed;
-        width: 100%;
+        width: auto;
         min-height: 40px;
         color: #ffffff;
         top: 100px;
-        left: 0;
+        left: 50%;
+        transform: translateX(-50%);
         text-align: center;
         background: transparent;
         z-index: 99999;
@@ -505,7 +549,8 @@ xh.getHintInsTemplateString = function (text) {
         vertical-align: middle;
         min-width: 200px;
         line-height: 40px;
-        background-color: #67c23a;
+        padding: 0 16px;
+        background-color: ${backgroundColor};
       }
     </style>
     <div class="c-hint--wrapper">
@@ -518,11 +563,14 @@ xh.getHintInsTemplateString = function (text) {
  * 创建提示框的实例
  * @param {String} text 需要显示的文本
  */
-xh.createHint = function (text) {
+xh.createHint = function (text, type) {
   if (!xh.hintIns) {
     xh.hintIns = document.createElement('div');
   }
-  xh.hintIns.innerHTML = xh.getHintInsTemplateString(text);
+  xh.hintIns.innerHTML = xh.getHintInsTemplateString({
+    text: text,
+    type: type
+  });
   if (xh.docuBody === null) {
     xh.docuBody = document.querySelector('body');
   }
@@ -550,6 +598,10 @@ xh.closeHintDelay = function (delay) {
   }, delay);
 }
 
+xh.checkObjectRelated = function (obj, data) {
+  return obj;
+}
+
 // * 弹窗确认按钮的回调方法
 xh.confirmSavePath = function (data) {
   console.log('confirm', data);
@@ -560,27 +612,59 @@ xh.confirmSavePath = function (data) {
    * 关闭高亮
    * 显示提示
    */
-  let { title, cssSelector } = data;
-  if (xh.cssRuleCol[title]) {
-    xh.cssRuleCol[title].push(cssSelector);
-  } else {
-    xh.cssRuleCol[title] = [];
-    xh.cssRuleCol[title].push(cssSelector);
-  }
-  // console.log('xh.cssRuleCol', xh.cssRuleCol);
+  let { title, cssSelector, type } = data;
+
+  // * test start:
+  // * 获取属性名的数组并循环判断是否有上下级关系（判断关系有无可能是object）(测试)
+  xh.cssRuleCol[title + new Date().getTime()] = data;
+  // let cssRuleColArr = Object.keys(xh.cssRuleCol);
+  // for (let item of cssRuleColArr) {
+  //   if (cssSelector.indexOf(xh.cssRuleCol[item].cssSelector) !== -1) {
+  //     if (!xh.cssRuleCol[item].meta) {
+  //       xh.cssRuleCol[item].meta = {};
+  //       xh.cssRuleCol[item].type = 'object';
+  //     }
+  //     xh.cssRuleCol[item].meta[title + new Date().getTime()] = data;
+  //     break;
+  //   } else if (xh.cssRuleCol[item].cssSelector.indexOf(cssSelector) !== -1) {
+  //     xh.cssRuleCol[title + new Date().getTime()] = data;
+  //     data.meta = xh.cssRuleCol[item];
+  //     data.type = 'object';
+  //     delete xh.cssRuleCol[item];
+  //     break;
+  //   }
+  // }
+  // if (cssRuleColArr.length === 0) {
+  //   xh.cssRuleCol[title + new Date().getTime()] = data;
+  // }
+  
+  // * test end:
+  // for (let item of cssRuleColArr) {
+  //   if (xh.cssRuleCol[item].indexOf(cssSelector) !== -1) {
+  //     xh.closeCInputBox();
+  //     xh.clearHighlights();
+  //     xh.createHint('已存在相同的<规则>', 'error');
+  //     xh.showHint();
+  //     xh.closeHintDelay(2000);
+  //     return;
+  //   }
+  // }
+  // if (xh.cssRuleCol[title]) {
+  //   xh.cssRuleCol[title].push(cssSelector);
+  // } else {
+  //   xh.cssRuleCol[title] = [];
+  //   xh.cssRuleCol[title].push(cssSelector);
+  // }
+
   xh.closeCInputBox();
   xh.clearHighlights();
-  // if (xh.hintIns) {
-  //   xh.showHint();
-  //   xh.closeHintDelay(2500);
-  // } else {
   xh.createHint('保存成功');
   xh.showHint();
   xh.closeHintDelay(2000);
-  // }
   console.log('cssRuleCol', xh.cssRuleCol);
+  xh.currentSeletorType = xh.TYPE_STRING;
   // * 测试预览功能
-  // xh.previewRquest();
+  xh.previewRquest();
 }
 
 // * 计算当前元素的位置
@@ -777,7 +861,7 @@ xh.fixingPopup = function (toggle, param) {
     xh.popupTextareaXpath = xh.divTmp.querySelector('#popupTextareaXpath');
     xh.popupTextareaResult = xh.divTmp.querySelector('#popupTextareaResult');
 
-    xh.popupTextareaXpath.value = toggle ? xh.transformSpeQueryToOldQuery(xpath) : '';
+    xh.popupTextareaXpath.value = toggle ? xpath : '';
     xh.popupTextareaResult.value = toggle ? resultStr : '';
 
     // * 保存按钮
@@ -786,10 +870,35 @@ xh.fixingPopup = function (toggle, param) {
 
     xh.popupButtonCancel.addEventListener('click', xh.cancelInputBox);
     xh.popupButtonConfirm.addEventListener('click', () => {
+      let cssSeletorOptimization = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
+      // TODOS:判断类型为string还是number(调用位置有误)
+      // let tmpCssDom = document.querySelector(cssSeletorOp);
+      // let tmpCssDomChilds = null;
+      // if (xh.currentSeletorType === xh.TYPE_STRING && tmpCssDom) {
+      //   tmpCssDomChilds = tmpCssDom.childNodes;
+      //   console.log('tmpCssDomChilds', tmpCssDomChilds);
+      //   if (tmpCssDomChilds.length === 1 && tmpCssDomChilds[0].nodeName === '#text' && !isNaN(Number(tmpCssDomChilds[0].nodeValue))) {
+      //     console.log('set number');
+      //     xh.currentSeletorType = xh.TYPE_NUMBER;
+      //   }
+      // }
+      // if (xh.currentSeletorType === xh.TYPE_STRING) {
+      //   if (!isNaN(Number(resultStr))) {
+      //     xh.currentSeletorType = xh.TYPE_NUMBER;
+      //   }
+      // }
+
+      // * 判断是否为array
+      // let cssSeletorDom = document.querySelectorAll(cssSeletorOptimization);
+      // if (cssSeletorDom && cssSeletorDom.length > 1) {
+      //   xh.currentSeletorType = xh.TYPE_ARRAY;
+      // }
+
       let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
       xh.confirmSavePath({
         title: title,
-        cssSelector: (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim()
+        cssSelector: cssSeletorOptimization,
+        type: xh.currentSeletorType
       });
     });
     
@@ -797,6 +906,25 @@ xh.fixingPopup = function (toggle, param) {
       xh.docuBody = document.querySelector('body');
     }
     xh.docuBody.appendChild(xh.divTmp);
+  }
+}
+
+xh.formContentTag = [
+  'input',
+  'select'
+];
+
+xh.formElementCondi = function (tagName) {
+  if (xh.formContentTag.indexOf(tagName.toLowerCase()) !== -1) {
+    return true;
+  }
+  return false;
+}
+
+xh.getElementValue = function (ele) {
+  if (xh.formElementCondi(ele.tagName)) {
+    console.log('ele.value', ele.value);
+    return ele.value;
   }
 }
 
@@ -887,6 +1015,7 @@ xh.evaluateQuery = function(query) {
     nodeCount = 0;
   }
 
+  // * 原先的高亮（不需要使用）
   // xh.highlight(toHighlight);
 
   // * 进行全局匹配，使用css selector
@@ -894,8 +1023,8 @@ xh.evaluateQuery = function(query) {
   
   // * 发送消息
   xh.fixingPopup(true, {
-    xpath: xhBarInstance.queryNewSpe_, // * 使用新分隔符的xpath
-    resultStr: str
+    xpath: xhBarInstance.query_,
+    resultStr: str.trim()
   });
   return [str, nodeCount];
 };
@@ -1049,7 +1178,7 @@ xh.Bar.prototype.previewCssRuleCol = function () {
   if (Object.keys(xh.cssRuleCol).length > 0) {
     xh.previewRquest();
   } else {
-    xh.createHint('暂无数据，请添加数据');
+    xh.createHint('暂无数据，请添加数据', 'warning');
     xh.showHint();
     xh.closeHintDelay(2000);
   }
@@ -1102,7 +1231,7 @@ xh.Bar.prototype.keyDown_ = function(e) {
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
-  // console.log('e', e);
+  console.log('e', e);
   let flagStop = false;
   let domPath = e.path;
   let domPathL = domPath.length;
