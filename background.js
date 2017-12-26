@@ -27,7 +27,7 @@ let currentTabObj = {}; // * 当前的tab页面对象
 // * 监听contentjs发出的事件
 function handleRequest(request, sender, cb) {
   // Simply relay the request. This lets content.js talk to bar.js.
-  chrome.tabs.sendMessage(sender.tab.id, request, cb);
+  // chrome.tabs.sendMessage(sender.tab.id, request, cb);
   let { type } = request;
   switch (type) {
     case 'open':
