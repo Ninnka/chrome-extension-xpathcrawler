@@ -127,7 +127,11 @@ xh.makeQueryForElement = function(el) {
   // console.log('el.textContent', el.textContent);
   // * (暂定)此处判断type
   let elChildNodes = el.childNodes;
-  if (elChildNodes && elChildNodes.length === 1 && elChildNodes[0].nodeName === '#text' && !isNaN(Number(elChildNodes[0].nodeValue))) {
+  console.log('elChildNodes', elChildNodes);
+  if (
+    ( xh.formElementCondi(el.tagName) && !isNaN(Number(xh.getElementValue(el))) )
+    || ( elChildNodes && elChildNodes.length === 1 && elChildNodes[0].nodeName === '#text' && !isNaN(Number(elChildNodes[0].nodeValue)) )
+  ) {
     xh.currentSeletorType = xh.TYPE_NUMBER;
   }
   for (; ; ) {
@@ -902,6 +906,25 @@ xh.fixingPopup = function (toggle, param) {
       xh.docuBody = document.querySelector('body');
     }
     xh.docuBody.appendChild(xh.divTmp);
+  }
+}
+
+xh.formContentTag = [
+  'input',
+  'select'
+];
+
+xh.formElementCondi = function (tagName) {
+  if (xh.formContentTag.indexOf(tagName.toLowerCase()) !== -1) {
+    return true;
+  }
+  return false;
+}
+
+xh.getElementValue = function (ele) {
+  if (xh.formElementCondi(ele.tagName)) {
+    console.log('ele.value', ele.value);
+    return ele.value;
   }
 }
 

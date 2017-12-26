@@ -38,6 +38,7 @@ function handleRequest(request, sender, cb) {
         openTabCol['windowId' + currentTabObj.windowId] = [];
         openTabCol['windowId' + currentTabObj.windowId].push(currentTabObj.tabId);
       }
+      sendStatusMsg();
       break;
     case 'close':
       initBrowserActionBadgeText();
@@ -47,6 +48,7 @@ function handleRequest(request, sender, cb) {
           openTabCol['windowId' + currentTabObj.windowId].splice(i, 1);
         }
       }
+      sendStatusMsg();
       break;
     case 'getStatus':
       // sendStatusMsg({
