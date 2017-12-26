@@ -1029,6 +1029,66 @@ xh.evaluateQuery = function(query) {
   return [str, nodeCount];
 };
 
+xh.hrefWhiteListKeyWord = [
+  'docs',
+  'zh',
+  'cn'
+];
+
+xh.customHrefFilter = function (value) {
+  for (let item of xh.hrefWhiteListKeyWord) {
+    if (value.toLowerCase().indexOf(item.toLowerCase()) !== -1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+xh.canJump = function (elTarget) {
+  if (elTarget.attributes.href && xh.customHrefFilter(elTarget.attributes.href.value)) {
+    return true;
+  }
+  return false;
+}
+
+xh.setNewTabForceOpenFunc = function (url) {
+  let resUrl = '';
+  let query = '';
+  let hash = '';
+
+  let separateHash = [];
+  let separateParam = [];
+  // let hashPosi = urlT.indexOf('#');
+  // let paramPosi = urlT.indexOf('?');
+
+  separateHash = url.split('#');
+  if (separateHash.length > 1) {
+    separateParam = separateHash[0].split('?');
+  } else {
+    separateParam = url.split('?');
+  }
+  if (separateHash.length > 1) {
+    hash = separateHash[1];
+  }
+  if (separateParam.length > 1) {
+    query = separateParam[1] + '&forceopen=1';
+  } else if (separateParam.length <= 1) {
+    query = '?forceopen=1';
+  }
+  resUrl = separateParam[0] + query + hash;
+  return resUrl;
+}
+
+xh.createNewTab = function (urlT) {
+  let urlWithCustomQuery = xh.setNewTabForceOpenFunc(urlT);
+  chrome.runtime.sendMessage({
+    type: 'createNewTab',
+    params: {
+      url: urlWithCustomQuery
+    }
+  });
+}
+
 ////////////////////////////////////////////////////////////
 // xh.Bar class definition
 
@@ -1232,6 +1292,8 @@ xh.Bar.prototype.keyDown_ = function(e) {
 
 xh.Bar.prototype.mouseClick_ = function (e) {
   console.log('e', e);
+  console.log('location', window.location);  
+  let originS = window.location.origin;
   let flagStop = false;
   let domPath = e.path;
   let domPathL = domPath.length;
@@ -1269,10 +1331,46 @@ xh.Bar.prototype.mouseClick_ = function (e) {
   // * 阻止a标签默认事件
   if (e.target.tagName === 'A') {
     e.preventDefault();
+    if (xh.canJump(e.target)) {
+      // console.log('canjump true');
+      // console.log('attributes.href.value', e.target.attributes.href.value);
+      let urlT,
+          href = e.target.attributes.href.value;
+      if (href.indexOf(originS) === -1) {
+        urlT = originS + href;
+      }
+      console.log('urlT', urlT);
+      flagStop = true;
+      xh.createNewTab(urlT);
+    }
   } else if (xh.checkParentHref(e)) {
     e.preventDefault();
+    if (e.target.parentNode && xh.canJump(e.target.parentNode)) {
+      // console.log('canjump true');
+      // console.log('e.target.parentNode.attributes.href.value', e.target.parentNode.attributes.href.value);
+      let urlT,
+          href = e.target.parentNode.attributes.href.value;
+      if (href.indexOf(originS) === -1) {
+        urlT = originS + href;
+      }
+      console.log('urlT', urlT);
+      flagStop = true;
+      xh.createNewTab(urlT);
+    }
   } else if (xh.checkParentHref(e.target.parentNode)) {
     e.preventDefault();
+    if (e.target.parentNode && e.target.parentNode.parentNode && xh.canJump(e.target.parentNode.parentNode)) {
+      // console.log('canjump true');
+      // console.log('e.target.parentNode.parentNode.attributes.href.value', e.target.parentNode.parentNode.attributes.href.value);
+      let urlT,
+          href = e.target.parentNode.parentNode.attributes.href.value;
+      if (href.indexOf(originS) === -1) {
+        urlT = originS + href;
+      }
+      console.log('urlT', urlT);
+      flagStop = true;
+      xh.createNewTab(urlT);
+    }
   }
   // * 如果已经获取到元素并且没有被阻止冒泡则显示弹框
   if (
