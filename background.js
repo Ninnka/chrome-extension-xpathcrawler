@@ -119,7 +119,7 @@ function sendStatusMsg (param) {
   // let { windowId, tabId } = param;
   let status = openTabCol['windowId' + currentTabObj.windowId] && (openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId) !== -1);
   chrome.runtime.sendMessage({
-    type: 'getStatus',
+    type: 'reponseStatus',
     status
   });
 }
