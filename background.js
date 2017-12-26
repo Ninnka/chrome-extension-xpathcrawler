@@ -51,11 +51,10 @@ function handleRequest(request, sender, cb) {
       sendStatusMsg();
       break;
     case 'getStatus':
-      // sendStatusMsg({
-      //   windowId: request.windowId,
-      //   tabId: request.tabId
-      // });
-      sendStatusMsg();
+      sendStatusMsg({
+        windowId: request.windowId,
+        tabId: request.tabId
+      });
       break;
   }
 }
@@ -119,7 +118,8 @@ function signedBrowserActionBadgeText () {
 
 function sendStatusMsg (param) {
   // let { windowId, tabId } = param;
-  let status = openTabCol['windowId' + currentTabObj.windowId] && (openTabCol['windowId' + currentTabObj.windowId].indexOf(currentTabObj.tabId) !== -1);
+  param = param ? param : currentTabObj;
+  let status = openTabCol['windowId' + param.windowId] && (openTabCol['windowId' + param.windowId].indexOf(param.tabId) !== -1);
   chrome.runtime.sendMessage({
     type: 'reponseStatus',
     status
