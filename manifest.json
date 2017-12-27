@@ -11,7 +11,7 @@
    },
    "content_scripts": [ {
       "css": [ "content.css" ],
-      "js": [ "content.js" ],
+      "js": [ "vue.js", "content.js" ],
       "matches": [ "\u003Call_urls>" ]
    } ],
    "description": "Extract, edit, and evaluate XPath queries with ease.",

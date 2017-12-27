@@ -37,7 +37,11 @@ xh.TYPE_NUMBER = 'number';
 xh.TYPE_ARRAY = 'array';
 xh.TYPE_OBJECT = 'object';
 
+xh.NEW_AREA = 'newArea';
+xh.SELECT_AREA = 'selectArea';
+
 xh.docuBody = null; // * body对象
+xh.divTmpWrapper = null;
 xh.divTmp = null; // * 弹窗对象
 xh.popupSelect = null; // * 弹窗里的select
 xh.popupOtherInput = null; // * 弹窗里的其他输入框
@@ -47,6 +51,10 @@ xh.popupTextareaResult = null; // * 弹窗里的result框
 xh.popupButtonConfirm = null;
 xh.popupButtonCancel = null;
 
+xh.inputBoxIns = null;
+
+xh.cssSeletorOptimizationRes = '';
+
 xh.IS_OPEN = false; // * 功能是否开启的状态
 
 xh.popupSelectPreset = [
@@ -55,6 +63,7 @@ xh.popupSelectPreset = [
 ];
 
 xh.cssRuleCol = {}; // * 保存的xpath合集
+xh.areaCreated = {}; // * 新建的识别区域放在这里
 
 xh.hintIns = null; // * 操作提示实例
 
@@ -127,7 +136,6 @@ xh.makeQueryForElement = function(el) {
   // console.log('el.textContent', el.textContent);
   // * (暂定)此处判断type
   let elChildNodes = el.childNodes;
-  console.log('elChildNodes', elChildNodes);
   if (
     ( xh.formElementCondi(el.tagName) && !isNaN(Number(xh.getElementValue(el))) )
     || ( elChildNodes && elChildNodes.length === 1 && elChildNodes[0].nodeName === '#text' && !isNaN(Number(elChildNodes[0].nodeValue)) )
@@ -339,95 +347,6 @@ xh.clearHighlights = function () {
 
 xh.getPreviewInsTemplateString = function () {
   return `
-    <style>
-      .c-preview-wrapper {
-        position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 100%;
-        text-align: center;
-        z-index: 1000000;
-      }
-      .c-preview-wrapper .c-preview-content {
-        background: #ffffff;
-        width: 60%;
-        min-width: 500px;
-        height: 600px;
-        box-shadow: 0px 0px 10px #000;
-      }
-      .c-preview-close{
-        cursor: pointer;
-        position: absolute;
-        width: 50px;
-        height: 35px;
-        line-height: 35px;
-        top: 3px;
-        right: 0;
-        font-size: 20px;
-        line-height: 35px;
-      }
-      .c-preview-wrapper .c-preview-title {
-        margin: 0;
-        padding: 10px;
-        background: rgb(180, 185, 191);
-        position: relative;
-      }
-      .c-preview-data {
-        background: rgb(236, 236, 236);
-        height: 70%;
-        width: 90%;
-        margin: 20px auto;
-        overflow: auto;
-        text-align: left;
-        color: #080 !important;
-        line-height: 1.3;
-      }
-      .c-previwe-bottons {
-        margin-top: 20px;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-      }
-      .c-previwe-button { 
-        cursor: pointer;
-        padding: .5em 2em .55em;  
-        text-shadow: 0 1px 1px rgba(0,0,0,.3);  
-        border-radius: .5em;  
-        box-shadow: 0 1px 2px rgba(0,0,0,.2);  
-      }
-      
-      /* blue */
-      .c-previwe-button.blue {  
-        color: #d9eef7;  
-        background: #0095cd;
-      }
-      .c-previwe-button.blue:hover {  
-        background: #007ead;
-      }
-      .c-previwe-button.blue:active {  
-        color: #80bed6;
-      }
-      /* white */
-      .c-previwe-button.white {  
-        color: #606060;  
-        background: #dadada;
-      }  
-      .c-previwe-button.white:hover {  
-        background: #ededed;
-      }
-      .c-previwe-button.white:active {  
-        color: #999;
-      }
-    </style>
-  `
-    +
-  `
     <div id="c-preview-wrapper" class="c-preview-wrapper">
       <div class="c-preview-content">
         <p class="c-preview-title">数据预览<span id="c-preview-close" class="c-preview-close">X</span></p>
@@ -505,7 +424,8 @@ xh.bindPreviewListener = function () {
 
 xh.setPreviewData = function () {
   if (xh.previewIns) {
-    let previewData = JSON.stringify(xh.cssRuleCol, null, 2);
+    // let previewData = JSON.stringify(xh.cssRuleCol, null, 2);
+    let previewData = JSON.stringify(xh.areaCreated, null, 2);
     // console.log('previewData', previewData);
     xh.previewIns.querySelector('#c-preview-data').innerHTML = previewData;
   }
@@ -602,21 +522,87 @@ xh.checkObjectRelated = function (obj, data) {
   return obj;
 }
 
+xh.setAreaCreateNested = function (area, data) {
+  let areaArr;
+  if (area.trim()) {
+    areaArr = area.split('/');
+  } else {
+    areaArr = [];
+  }
+  let tmpObjCurr = xh.areaCreated;
+  for (let i = 0; i < areaArr.length; i++) {
+    i === 0 ? (tmpObjCurr = tmpObjCurr[areaArr[i]]) : (tmpObjCurr = tmpObjCurr.meta[areaArr[i]]);
+    // console.log('i', i);
+    // console.log('tmpObjCurr', tmpObjCurr);
+  }
+  if (areaArr && areaArr.length > 0) {
+    tmpObjCurr.meta = tmpObjCurr.meta ? tmpObjCurr.meta : {};
+    tmpObjCurr.meta[data.title] = data;
+  } else {
+    tmpObjCurr[data.title] = data;
+  }
+}
+
 // * 弹窗确认按钮的回调方法
 xh.confirmSavePath = function (data) {
   console.log('confirm', data);
-  /**
-   * DONE:
-   * 保存path
-   * 关闭弹窗
-   * 关闭高亮
-   * 显示提示
-   */
-  let { title, cssSelector, type } = data;
+  let { title, cssSelector, type, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
+  // * 判断是否有选择的路径多级
+  // * 通过action判断是新建识别区域还是选择识别区域
+  if (action === xh.NEW_AREA && !areaNewLimitSetter) {
+    let data = {
+      title,
+      cssSelector,
+      type,
+      isAreaIdenti
+    };
+    // if (areaNewLimitSetter && areaNewLimit) {
+    //   let areaNewLimitArr = areaNewLimit.split('/');
+    //   let tmpObjCurr = xh.areaCreated;
+    //   let tmpObj = null;
+    //   for (let i = 0; i < areaNewLimitArr.length; i++) {
+    //     tmpObjCurr = tmpObjCurr[areaNewLimitArr[i]];
+    //   }
+    //   tmpObjCurr.meta = tmpObjCurr.meta ? tmpObjCurr.meta : {};
+    //   tmpObjCurr.meta[data.title] = data;
+    // } else {
+    xh.areaCreated[title] = data;
+    // }
+  } else if (action === xh.NEW_AREA && areaNewLimitSetter && areaNewLimit) {
+    let data = {
+      title,
+      cssSelector,
+      type,
+      isAreaIdenti
+    };
+    xh.setAreaCreateNested(areaNewLimit, data);
+  } else if (action === xh.SELECT_AREA) {
+    let data = {
+      title,
+      cssSelector,
+      type,
+      isAreaIdenti
+    };
+    xh.setAreaCreateNested(areaSelected, data);
+    // let areaCreatedArr = Object.keys(xh.areaCreated);
+    // for (let item of areaCreatedArr) {
+    //   if (item === areaSelected) {
+    //     xh.areaCreated[item].meta = xh.areaCreated[item].meta ? xh.areaCreated[item].meta : {};
+    //     xh.areaCreated[item].meta[title] = {
+    //       title,
+    //       cssSelector,
+    //       type,
+    //       isAreaIdenti
+    //     }
+    //   }
+    // }
+  }
+  console.log('xh.areaCreated');
+  console.log(xh.areaCreated);
 
   // * test start:
   // * 获取属性名的数组并循环判断是否有上下级关系（判断关系有无可能是object）(测试)
-  xh.cssRuleCol[title + new Date().getTime()] = data;
+  // xh.cssRuleCol[title + new Date().getTime()] = data;
   // let cssRuleColArr = Object.keys(xh.cssRuleCol);
   // for (let item of cssRuleColArr) {
   //   if (cssSelector.indexOf(xh.cssRuleCol[item].cssSelector) !== -1) {
@@ -661,10 +647,10 @@ xh.confirmSavePath = function (data) {
   xh.createHint('保存成功');
   xh.showHint();
   xh.closeHintDelay(2000);
-  console.log('cssRuleCol', xh.cssRuleCol);
+  // console.log('cssRuleCol', xh.cssRuleCol);
   xh.currentSeletorType = xh.TYPE_STRING;
   // * 测试预览功能
-  xh.previewRquest();
+  // xh.previewRquest();
 }
 
 // * 计算当前元素的位置
@@ -710,12 +696,12 @@ xh.calcEleRoundPosAvalid = function (e) {
 
 xh.popupSelectChange = function (e) {
   // console.log('popupSelectChange', e);
-  const eV = e.target.value;
-  if (eV === '-1' || eV === -1) {
-    xh.popupOtherInput && (xh.popupOtherInput.style.display = 'block');
-  } else {
-    xh.popupOtherInput && (xh.popupOtherInput.style.display = 'none');
-  }
+  // const eV = e.target.value;
+  // if (eV === '-1' || eV === -1) {
+  //   xh.popupOtherInput && (xh.popupOtherInput.style.display = 'block');
+  // } else {
+  //   xh.popupOtherInput && (xh.popupOtherInput.style.display = 'none');
+  // }
 }
 
 xh.popupOtherInputChange = function (e) {
@@ -724,7 +710,12 @@ xh.popupOtherInputChange = function (e) {
 
 // * 关闭弹窗
 xh.closeCInputBox = function () {
-  xh.divTmp && (xh.divTmp.style.display = 'none');
+  xh.divTmpWrapper && (xh.divTmpWrapper.style.display = 'none');
+}
+
+// * 打开弹窗
+xh.openCInputBox = function () {
+  xh.divTmpWrapper && (xh.divTmpWrapper.style.display = 'block');
 }
 
 // * 取消按钮的回调事件
@@ -733,110 +724,235 @@ xh.cancelInputBox = function () {
   xh.clearHighlights();
 }
 
-// * 打开弹窗
-xh.openCInputBox = function () {
-  xh.divTmp && (xh.divTmp.style.display = 'block');
+// :style="{
+//   top: inputBoxTop,
+//   left: inputBoxLeft
+// }"
+// * 创建弹框实例（vue版本）
+xh.createInputBoxIns = function () {
+  xh.inputBoxIns = new Vue({
+    data: {
+      areaCreated: xh.areaCreated,
+      typePresets: [{
+        name: '单块内容',
+        value: 'object'
+      }, {
+        name: '列表',
+        value: 'array'
+      }, {
+        name: '字符串',
+        value: 'string'
+      }, {
+        name: '数值',
+        value: 'number'
+      }],
+      titlePresets: ['标题1', '标题2', '标题3', '标题4'],
+      symbolPreset: '',
+      customTitle: '',
+      radioArea: 'newArea',
+      inputBoxTop: xhBarInstance.popupPos.y + 'px',
+      inputBoxLeft: xhBarInstance.popupPos.x + 'px',
+      cssSeletorOptimizationRes: xhBarInstance.queryCssSelector.trim(),
+      areaSelected: '',
+      areaTitleSelected: this.titlePresets && this.titlePresets.length > 0 ? this.titlePresets[0] : '',
+      customAreaTitle: '',
+      areaNewLimit: '',
+      areaNewLimitSetter: '',
+      IATitleType: 'IATitlePreset'
+    },
+    methods: {
+      resetDataStatus () {
+        this.areaCreated = xh.areaCreated;
+        this.cssSeletorOptimizationRes = xhBarInstance.queryCssSelector.trim();
+        this.inputBoxTop = xhBarInstance.popupPos.y + 'px';
+        this.inputBoxLeft = xhBarInstance.popupPos.x + 'px';
+        this.customTitle = '';
+        this.areaTitleSelected = this.titlePresets && this.titlePresets.length > 0 ? this.titlePresets[0] : '';
+        this.customAreaTitle = '';
+        this.IATitleType = 'IATitlePreset';
+        this.areaNewLimitSetter = '';
+        this.setSymbolPresetDefault();
+        this.setAreaNewLimitDefault();
+        this.setRadioAreaDefault();
+      },
+      setAreaNewLimitDefault () {
+        let arr = this.getAreaIdenti(this.areaCreated);
+        if (arr.length > 0) {
+          this.areaNewLimit = arr[0];
+        } else {
+          this.areaNewLimit = '';
+        }
+      },
+      setSymbolPresetDefault () {
+        this.symbolPreset = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
+      },
+      setRadioAreaDefault () {
+        let areaCreatedArr = Object.keys(this.areaCreated);
+        if (areaCreatedArr.length > 0) {
+          this.radioArea = 'selectArea';
+          // this.areaSelected = this.areaCreated[areaCreatedArr[0]].title;
+        } else {
+          this.radioArea = 'newArea';
+          // this.areaSelected = '';
+        }
+        this.areaSelected = '';
+      },
+      cancelInputBox () {
+        xh.cancelInputBox();
+      },
+      confirmSavePath () {
+        let title = '';
+        if (this.radioArea === xh.NEW_AREA) {
+          title = this.customTitle
+        } else if (this.radioArea === xh.SELECT_AREA && this.IATitleType === 'IATitlePreset') {
+          title = this.areaTitleSelected;
+        } else {
+          title = this.customAreaTitle;
+        }
+        xh.confirmSavePath({
+          title: title,
+          type: this.symbolPreset,
+          action: this.radioArea,
+          cssSelector: this.cssSeletorOptimizationRes,
+          areaSelected: this.areaSelected,
+          isAreaIdenti: this.radioArea === xh.NEW_AREA,
+          areaTitleSelected: this.areaTitleSelected,
+          areaNewLimit: this.areaNewLimit,
+          areaNewLimitSetter: this.areaNewLimitSetter
+        });
+      },
+      getAreaIdenti (areaCreated) {
+        let res = [];
+        let arr = Object.keys(areaCreated);
+        for (let i of arr) {
+          if (areaCreated[i].isAreaIdenti && (xhBarInstance.queryCssSelector.trim()).indexOf(areaCreated[i].cssSelector) !== -1) {
+            res.push(i);
+            if (areaCreated[i].meta) {
+              let metas = this.getAreaIdenti(areaCreated[i].meta);
+              let metasRename = metas.map((item, index, arr) => {
+                item = areaCreated[i].title + '/' + item;
+                // console.log('item after plus', item);
+                return item;
+              });
+              res = res.concat(metasRename);
+            }
+          }
+        }
+        // console.log('res:', res);
+        return res;
+      }
+    },
+    computed: {
+    },
+    mounted () {
+      // this.symbolPreset = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
+      this.setSymbolPresetDefault();
+    },
+    template: `
+      <div id="c-input-box-ins-wrapper">
+        <div id="c-input-box">
+          <div class="select-input--wrapper">
+            <div id="identificationArea" class="c-identification-area-select" v-show="Object.keys(this.areaCreated).length > 0">
+              <div class="c-identificationAreaSelect-wrapper">
+                <input type="radio" id="identificationAreaSelect" value="selectArea" v-model="radioArea"><span>选择识别区域</span>
+              </div>
+              <select name="areaSelect" id="areaSelector" v-model="areaSelected" class="inline-b">
+                <option v-for="area in [''].concat(getAreaIdenti(this.areaCreated))" :key="area" :value="area">{{ area }}</option>
+              </select>
+              <div class="c-block c-talign">
+                <input type="radio" value="IATitlePreset" v-model="IATitleType" style="margin-left: 20px;">
+                <span>选择标题：</span>
+                <select name="areaTitleSelect" id="areaTitleSelector" v-model="areaTitleSelected" class="inline-b" style="margin-left: 20px;">
+                  <option v-for="title in titlePresets" :key="title" :value="title">{{ title }}</option>
+                </select>
+              </div>
+              <div class="c-block c-talign">
+                <input type="radio" value="IATitleCustom" v-model="IATitleType" style="margin-left: 20px;"/>
+                <span>自定义标题：</span>
+                <input v-model="customAreaTitle" type="text" class="c-input-cl" id="customAreaTitle" style="margin-left: 20px;">
+              </div>
+            </div>
+            <div id="identificationAreaCreate" class="c-identification-area-create">
+              <div class="c-identificationAreaSelect-wrapper">
+                <input type="radio" id="identificationAreaCreate" value="newArea" v-model="radioArea"><span>新建识别区域</span>
+              </div>
+              <div class="c-block c-talign" v-show="Object.keys(this.areaCreated).length > 0">
+                <input type="checkbox" value="areaNewLimitSetter" id="areaNewLimitSetter" v-model="areaNewLimitSetter" style="margin-left: 20px;"/>
+                <span>设定所属区域：</span>
+                <select name="areaNewLimit" id="areaNewLimit" v-model="areaNewLimit" class="inline-b" style="margin-left: 20px;">
+                  <option v-for="area in getAreaIdenti(this.areaCreated)" :key="area" :value="area">{{ area }}</option>
+                </select>
+              </div>
+              <div class="c-block c-talign">
+                <span class="middle-left">名称：</span>
+                <input v-model="customTitle" type="text" class="c-input-cl" id="popupOtherInput" style="margin-left: 0; margin-right: 0">
+              </div>
+              <div class="c-block c-talign">
+                <span class="middle-left">类型：</span>
+                <select name="symbolType" id="symbomSelect" v-model="symbolPreset" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
+                  <option v-for="preset in typePresets" :key="preset.value" :value="preset.value">{{ preset.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="c-buttons">
+              <div id="popupButtonCancel" @click="cancelInputBox">取消</div>
+              <div id="popupButtonConfirm" @click="confirmSavePath">确定</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+  });
 }
 
 // * 创建弹框实例和定位弹框实例
 xh.fixingPopup = function (toggle, param) {
   let xpath = param && param.xpath ? param.xpath : '';
   let resultStr = param && param.resultStr ? param.resultStr : '';
-
-  if (xh.docuBody) {
-    xh.docuBody.removeChild(xh.divTmp);
-  }
+  xh.cssSeletorOptimizationRes = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
+  // if (xh.docuBody) {
+  //   xh.docuBody.removeChild(xh.divTmp);
+  // }
   if (xhBarInstance.popupPos) {
     // let isShow = toggle ? 'flex' : 'none';
-    xh.divTmp = document.createElement('div');
+    if (!xh.divTmpWrapper) {
+      xh.divTmpWrapper = document.createElement('div');
+    }
+    if (!xh.divTmp) {
+      xh.divTmp = document.createElement('div');
+      xh.divTmp.id = 'c-input-box-ins-outcontainer';
+    }
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(xh.divTmpWrapper);
+    xh.divTmpWrapper.appendChild(xh.divTmp);
+
+    if (!xh.inputBoxIns) {
+      xh.createInputBoxIns();
+      xh.inputBoxIns.$mount('#c-input-box-ins-outcontainer');
+    } else {
+      xh.inputBoxIns.resetDataStatus();
+      xh.openCInputBox();
+    }
+    
     let popupDomS = 
-      `
-        <style>
-          #c-input-box {
-            position: fixed;
-            width: 400px;
-            min-height: 400px;
-            display: flex;
-            top: ${xhBarInstance.popupPos.y}px;
-            left: ${xhBarInstance.popupPos.x}px;
-            z-index: 99999;
-            text-align: center;
-            box-sizing: border-box;
-            padding: 12px;
-            box-shadow: 0px 1px 5px 0 #bbb;
-            background-color: #FAFAFA;
-            align-items: center;
-            transform: translateZ(3px);
-          }
-          #c-input-box .select-input--wrapper {
-            width: 100%;
-          }
-          #c-input-box select {
-            width: 80%;
-            height: 40px;
-            border: none;
-            box-shadow: 0px 1px 5px 0 #bbb;
-            margin-bottom: 20px;
-          }
-          #c-input-box #popupOtherInput {
-            width: 80%;
-            margin: 0 auto 20px;
-            box-sizing: border-box;
-            border: none;
-            box-shadow: 0px 1px 5px 0 #bbb;
-          }
-          #c-input-box textarea {
-            resize: none;
-            border: none;
-            width: 80%;
-            margin: 0 auto 20px;
-            height: 60px;
-            overflow-y: auto;
-            box-sizing: border-box;
-            box-shadow: 0px 1px 5px 0 #bbb;
-            vertical-align: middle;
-          }
-          #c-input-box .c-buttons {
-            width: 80%;
-            height: 40px;
-            margin: auto;
-            display: flex;
-            justify-content: center;
-          }
-          .c-buttons div {
-            border-radius: 4px;
-            flex-grow: 0;
-            flex-shrink: 1;
-            width: 100px;
-            height: 100%;
-            color: #ffffff;
-            line-height: 40px;
-            margin: 0 30px;
-          }
-          .c-buttons div:nth-child(1) {
-            background-color: #bababa;
-          }
-          .c-buttons div:nth-child(2) {
-            color: #d9eef7;  
-            background: #0095cd;
-          }
-        </style>
-      `
-       +
       `
         <div id="c-input-box">
           <div class="select-input--wrapper">
-            <select name="symbol" id="symbomSelect">
-              <option value="0">此处为预选标题1</option>
-              <option value="1">此处为预选标题2</option>
-              <option value="-1">其他</option>
-            </select>
-            <input type="text" id="popupOtherInput" placeholder="请输入自定义的标题" style="display: none;">
-            <div class="c-textarea--wrapper wrapper--textarea-xpath">
-              <textarea id="popupTextareaXpath" readonly="true"></textarea>
+            <div id="identificationArea" class="c-identification-area">
+              
             </div>
-            <div class="c-textarea--wrapper wrapper--textarea-result">
-              <textarea id="popupTextareaResult" readonly="true"></textarea>
+            <div id="identificationAreaCreate" class="c-identification-area-create">
+              <div class="c-identificationAreaSelect-wrapper">
+                <input type="radio" id="identificationAreaSelect" checked>新建识别区域</input>
+              </div>
+              <input type="text" id="popupOtherInput" placeholder="请输入自定义的标题">
+              <select name="symbolType" id="symbomSelect">
+                <option value=""></option>
+                <option value="array">列表</option>
+                <option value="object">单块内容</option>
+              </select>
             </div>
             <div class="c-buttons">
               <div id="popupButtonCancel">取消</div>
@@ -845,32 +961,38 @@ xh.fixingPopup = function (toggle, param) {
           </div>
         </div>
       `;
-    xh.divTmp.innerHTML = popupDomS;
+      // <div class="c-textarea--wrapper wrapper--textarea-xpath">
+      //         <textarea id="popupTextareaXpath" readonly="true"></textarea>
+      //       </div>
+      //       <div class="c-textarea--wrapper wrapper--textarea-result">
+      //         <textarea id="popupTextareaResult" readonly="true"></textarea>
+      //       </div>
+    // xh.divTmp.innerHTML = popupDomS;
 
     // xh.openCInputBox();
 
     // * 保存popup的select和添加事件
-    xh.popupSelect = xh.divTmp.querySelector('#symbomSelect');
-    xh.popupSelect && xh.popupSelect.addEventListener('change', xh.popupSelectChange);
+    // xh.popupSelect = xh.divTmp.querySelector('#symbomSelect');
+    // xh.popupSelect && xh.popupSelect.addEventListener('change', xh.popupSelectChange);
 
     // * 保存其他的输入框和添加事件
-    xh.popupOtherInput = xh.divTmp.querySelector('#popupOtherInput');
-    xh.popupOtherInput && xh.popupOtherInput.addEventListener('change', xh.popupOtherInputChange)
+    // xh.popupOtherInput = xh.divTmp.querySelector('#popupOtherInput');
+    // xh.popupOtherInput && xh.popupOtherInput.addEventListener('change', xh.popupOtherInputChange)
 
-    // * 保存文本框
-    xh.popupTextareaXpath = xh.divTmp.querySelector('#popupTextareaXpath');
-    xh.popupTextareaResult = xh.divTmp.querySelector('#popupTextareaResult');
+    // * 保存文本框(废弃)
+    // xh.popupTextareaXpath = xh.divTmp.querySelector('#popupTextareaXpath');
+    // xh.popupTextareaResult = xh.divTmp.querySelector('#popupTextareaResult');
 
-    xh.popupTextareaXpath.value = toggle ? xpath : '';
-    xh.popupTextareaResult.value = toggle ? resultStr : '';
+    // xh.popupTextareaXpath.value = toggle ? xpath : '';
+    // xh.popupTextareaResult.value = toggle ? resultStr : '';
 
     // * 保存按钮
-    xh.popupButtonCancel = xh.divTmp.querySelector('#popupButtonCancel')
-    xh.popupButtonConfirm = xh.divTmp.querySelector('#popupButtonConfirm')
+    // xh.popupButtonCancel = xh.divTmp.querySelector('#popupButtonCancel')
+    // xh.popupButtonConfirm = xh.divTmp.querySelector('#popupButtonConfirm')
 
-    xh.popupButtonCancel.addEventListener('click', xh.cancelInputBox);
-    xh.popupButtonConfirm.addEventListener('click', () => {
-      let cssSeletorOptimization = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
+    // xh.popupButtonCancel.addEventListener('click', xh.cancelInputBox);
+    // xh.popupButtonConfirm.addEventListener('click', () => {
+      // let cssSeletorOptimization = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
       // TODOS:判断类型为string还是number(调用位置有误)
       // let tmpCssDom = document.querySelector(cssSeletorOp);
       // let tmpCssDomChilds = null;
@@ -894,18 +1016,19 @@ xh.fixingPopup = function (toggle, param) {
       //   xh.currentSeletorType = xh.TYPE_ARRAY;
       // }
 
-      let title = xh.popupSelect.value !== -1 && xh.popupSelect.value !== '-1'  ? xh.popupSelectPreset[xh.popupSelect.value] : xh.popupOtherInput.value;
-      xh.confirmSavePath({
-        title: title,
-        cssSelector: cssSeletorOptimization,
-        type: xh.currentSeletorType
-      });
-    });
+      // let title = xh.popupOtherInput.value;
+      // * 确认
+      // xh.confirmSavePath({
+      //   title: title,
+      //   cssSelector: cssSeletorOptimization,
+      //   type: xh.currentSeletorType
+      // });
+    // });
     
-    if (xh.docuBody === null) {
-      xh.docuBody = document.querySelector('body');
-    }
-    xh.docuBody.appendChild(xh.divTmp);
+    // if (xh.docuBody === null) {
+    //   xh.docuBody = document.querySelector('body');
+    // }
+    // xh.docuBody.appendChild(xh.divTmp);
   }
 }
 
@@ -1052,6 +1175,7 @@ xh.canJump = function (elTarget) {
 }
 
 xh.setNewTabForceOpenFunc = function (url) {
+  console.log('url', url);
   let resUrl = '';
   let query = '';
   let hash = '';
@@ -1073,13 +1197,14 @@ xh.setNewTabForceOpenFunc = function (url) {
   if (separateParam.length > 1) {
     query = separateParam[1] + '&forceopen=1';
   } else if (separateParam.length <= 1) {
-    query = '?forceopen=1';
+    query = 'forceopen=1';
   }
-  resUrl = separateParam[0] + query + hash;
+  resUrl = separateParam[0] + '?' + query + hash;
   return resUrl;
 }
 
 xh.createNewTab = function (urlT) {
+  console.log('urlT', urlT);
   let urlWithCustomQuery = xh.setNewTabForceOpenFunc(urlT);
   chrome.runtime.sendMessage({
     type: 'createNewTab',
@@ -1137,9 +1262,11 @@ xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   }
   this.queryNewSpe_ = queryObj ? queryObj.query : '';
   this.queryCssSelector = queryObj ? queryObj.queryCss : '';
-  console.log('queryCssSelector:', this.queryCssSelector);
+  console.log('queryCssSelector:');
+  console.log(this.queryCssSelector);
   this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
-  console.log('query_:', this.query_);
+  console.log('query_:');
+  console.log(this.query_);
   // console.log(' updateQueryAndBar_ this.query_ ', this.query_ );
   this.updateBar_(true);
 };
@@ -1235,7 +1362,7 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
 
 // * 预览css selector合集
 xh.Bar.prototype.previewCssRuleCol = function () {
-  if (Object.keys(xh.cssRuleCol).length > 0) {
+  if (Object.keys(xh.areaCreated).length > 0) {
     xh.previewRquest();
   } else {
     xh.createHint('暂无数据，请添加数据', 'warning');
@@ -1292,7 +1419,7 @@ xh.Bar.prototype.keyDown_ = function(e) {
 
 xh.Bar.prototype.mouseClick_ = function (e) {
   console.log('e', e);
-  console.log('location', window.location);  
+  // console.log('location', window.location);  
   let originS = window.location.origin;
   let flagStop = false;
   let domPath = e.path;
@@ -1334,9 +1461,9 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     if (xh.canJump(e.target)) {
       // console.log('canjump true');
       // console.log('attributes.href.value', e.target.attributes.href.value);
-      let urlT,
-          href = e.target.attributes.href.value;
-      if (href.indexOf(originS) === -1) {
+      let urlT = e.target.attributes.href.value;
+      let href = urlT;
+      if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
         urlT = originS + href;
       }
       console.log('urlT', urlT);
@@ -1348,9 +1475,9 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     if (e.target.parentNode && xh.canJump(e.target.parentNode)) {
       // console.log('canjump true');
       // console.log('e.target.parentNode.attributes.href.value', e.target.parentNode.attributes.href.value);
-      let urlT,
-          href = e.target.parentNode.attributes.href.value;
-      if (href.indexOf(originS) === -1) {
+      let urlT = e.target.attributes.href.value;
+      let href = urlT;
+      if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
         urlT = originS + href;
       }
       console.log('urlT', urlT);
@@ -1362,9 +1489,9 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     if (e.target.parentNode && e.target.parentNode.parentNode && xh.canJump(e.target.parentNode.parentNode)) {
       // console.log('canjump true');
       // console.log('e.target.parentNode.parentNode.attributes.href.value', e.target.parentNode.parentNode.attributes.href.value);
-      let urlT,
-          href = e.target.parentNode.parentNode.attributes.href.value;
-      if (href.indexOf(originS) === -1) {
+      let urlT = e.target.attributes.href.value;
+      let href = urlT;
+      if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
         urlT = originS + href;
       }
       console.log('urlT', urlT);
