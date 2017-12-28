@@ -21,11 +21,11 @@
 
 'use strict';
 
-// Extension namespace.
+// * 扩展的命名空间：xh.
 var xh = xh || {};
 
 ////////////////////////////////////////////////////////////
-// Generic helper functions and constants
+// * 函数及常量、变量
 
 xh.SHIFT_KEYCODE = 16; // * shift字符
 xh.X_KEYCODE = 88; // * x字符
@@ -47,20 +47,19 @@ xh.popupSelect = null; // * 弹窗里的select
 xh.popupOtherInput = null; // * 弹窗里的其他输入框
 xh.popupTextareaXpath = null; // * 弹窗里的xpath框
 xh.popupTextareaResult = null; // * 弹窗里的result框
+
 // * popup中的确认和取消按钮
 xh.popupButtonConfirm = null;
 xh.popupButtonCancel = null;
 
+// * 输入弹框的vue实例
 xh.inputBoxIns = null;
 
-xh.cssSeletorOptimizationRes = '';
+// * 优化后的css selector
+xh.cssSeletorOptimizationRes = ''; // * 模糊模式
+xh.cssSeletorStrictOptimizationRes = ''; // * 严格模式
 
 xh.IS_OPEN = false; // * 功能是否开启的状态
-
-xh.popupSelectPreset = [
-  '预设标题1',
-  '预设标题2'
-];
 
 xh.cssRuleCol = {}; // * 保存的xpath合集
 xh.areaCreated = {}; // * 新建的识别区域放在这里
@@ -71,7 +70,9 @@ xh.hintDelayIns = null; // * 提示的定时器
 
 xh.previewIns = null; // * 预览窗口的实例
 
-xh.currentSeletorType = xh.TYPE_STRING;
+xh.currentSeletorType = xh.TYPE_STRING; // * 保存当前元素的类型（已经没有用，等待相关关联的数据删除中）
+
+xh.LEVEL_LIMIT = 3;
 
 // * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
@@ -88,7 +89,26 @@ xh.elementsShareFamilyCss = function (primaryEl, siblingEl) {
   return p.tagName === s.tagName;
 }
 
-// * Xpath使用
+// * CSS Selector使用，检查两个元素的子元素是否有相同的结构
+xh.elementsShareChildConstruct = function (el, sib) {
+  if ((!el.childNodes && sib.childNodes) || (el.childNodes && !sib.childNodes)) {
+    return false;
+  }
+  let isLengthSame = el.childNodes.length === sib.childNodes.length;
+  if (isLengthSame) {
+    let len = el.childNodes.length;
+    for (let i = 0; i < len; i++) {
+      if (el.childNodes[i].nodeName !== sib.childNodes[i].nodeName) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// * Xpath 使用，获取元素在父元素中排序
 xh.getElementIndex = function(el) {
   var index = 1;
   var sib;
@@ -108,7 +128,7 @@ xh.getElementIndex = function(el) {
   return 0;
 };
 
-// * CSS Selector使用
+// * CSS Selector 使用，获取元素在父元素中排序
 xh.getElementIndexCss = function (el) {
   let index = 1;
   let sib;
@@ -128,11 +148,53 @@ xh.getElementIndexCss = function (el) {
   return 0;
 }
 
+// * 判断元素所在区域是否为列表
+// * 有部分相同className的同名元素，出现多个初步判断为列表
+xh.getElementIndexCssWithClass = function (el) {
+  let index = 1;
+  let sib;
+  for (sib = el.previousSibling; sib; sib = sib.previousSibling) {
+    if (sib.nodeType !== Node.ELEMENT_NODE) {
+      continue;
+    }
+    // console.log('el', el);
+    // console.log('el.className', el.className);
+    // console.log('sib', sib);
+    // console.log('sib.className', sib.className);
+    if (((el.className !== '' && sib.className !== '') || (el.className === '' && sib.className === '')) && xh.cssClassOptimization(el.className) === xh.cssClassOptimization(sib.className)) {
+      index++;
+    } else if ((el.className === '' || sib.className === '') && xh.elementsShareFamilyCss(el, sib) && xh.elementsShareChildConstruct(el, sib)) {
+      index++;
+    }
+  }
+  if (index > 1) {
+    return index;
+  }
+  for (sib = el.nextSibling; sib; sib = sib.nextSibling) {
+    if (sib.nodeType !== Node.ELEMENT_NODE) {
+      continue;
+    }
+    // console.log('el', el);
+    // console.log('el.className', el.className);
+    // console.log('sib', sib);
+    // console.log('sib.className', sib.className);
+    if (((el.className !== '' && sib.className !== '') || (el.className === '' && sib.className === '')) && xh.cssClassOptimization(el.className) === xh.cssClassOptimization(sib.className)) {
+      index++;
+    } else if ((el.className === '' || sib.className === '') && xh.elementsShareFamilyCss(el, sib) && xh.elementsShareChildConstruct(el, sib)) {
+      index++;
+    }
+  }
+  return index;
+}
+
 // * 创建xpath和css selector
 xh.makeQueryForElement = function(el) {
   let query = '';
   let queryCss = '';
+  let queryCssStrict = '';
   let hasBreak = false;
+  let isFirstList = true;
+  let levelLimit = xh.LEVEL_LIMIT;
   // console.log('el.textContent', el.textContent);
   // * (暂定)此处判断type
   let elChildNodes = el.childNodes;
@@ -154,43 +216,149 @@ xh.makeQueryForElement = function(el) {
       continue;
     }
     let component = el.tagName.toLowerCase();
-    let componentCss = el.tagName.toLowerCase(); // *
+    let componentCss = el.tagName.toLowerCase(); // * css selector 模糊模式用
+    let componentCssStrict = el.tagName.toLowerCase(); // * css selector 严格模式用
     let index = xh.getElementIndex(el);
     let indexCss = xh.getElementIndexCss(el); // *
+    let indexCssWithClass = xh.getElementIndexCssWithClass(el);
     if (el.id) {
       component += '[@id=\'' + el.id + '\']';
-      componentCss += '[id=\'' + el.id + '\']'; // *
+      componentCss += '[id=\'' + el.id + '\']'; // * css selector 模糊模式用
+      componentCssStrict += '[id=\'' + el.id + '\']'; // * css selector 严格模式用
     } else if (el.className) {
       component += '[@class=\'' + el.className + '\']';
+
       // * css seletor的class用经过刷选处理，目前最多只留下一个class名
-      componentCss += '[class*=\'' + xh.cssClassOptimization(el.className.trim()) + '\']';
+      
+      // * css seletor 严格模式
+      componentCssStrict += '[class*=\'' + xh.cssClassOptimization(el.className.trim()) + '\']';
+
+      // * css seletor 模糊模式 如果当前元素有可能为数组成员，则不使用class属性
+      if (
+        /* !(indexCss >= 1
+        && indexCssWithClass > 1
+        && isFirstList) */
+        indexCss >= 1
+      ) {
+        if (indexCssWithClass > 1) {
+          let useLen = 0;
+          let elClassLen = el.className ? el.className.split(' ').length : 0;
+          // * 对比当前元素兄弟元素的className长度
+          let pre = el.previousSibling ? el.previousSibling : null;
+          let next = el.nextSibling ? el.nextSibling : null;
+          if (pre) {
+            // * 与前一个元素对比
+            let preClassLen = pre.className ? pre.className.split(' ').length : 0;
+            if (elClassLen !== preClassLen) {
+              useLen = Math.min(elClassLen, preClassLen);
+            } else {
+              useLen = elClassLen;
+            }
+          } else if (next) {
+            // * 与后一个元素对比
+            let nextClassLen = next.className ? next.className.split(' ').length : 0;
+            if (elClassLen !== nextClassLen) {
+              useLen = Math.min(elClassLen, nextClassLen);
+            } else {
+              useLen = elClassLen;
+            }
+          }
+          // * 最多用一个className
+          if (useLen >= 1) {
+            useLen = 1;
+            componentCss += '[class*=\'' + xh.cssClassOptimization(el.className.trim()) + '\']';
+          }
+        } 
+        else {
+          componentCss += '[class*=\'' + xh.cssClassOptimization(el.className.trim()) + '\']';
+        }
+      }
     }
+
+    // * xpath 使用 判断是否元素在父元素中的排序（用xpath专用的规则）
     if (index >= 1) {
       component += '[' + index + ']';
     }
-    // * css selector部分专用(暂时为严格匹配)
-    if (indexCss >= 1) {
-      componentCss += ':nth-child(' + indexCss + ')';
+
+    console.log('levelLimit', levelLimit);
+
+    // * 根据层级限制重置isFirstList
+    if (levelLimit === 0) {
+      isFirstList = false;
     }
+
+    // * css selector 模糊模式
+    if (
+      indexCss >= 1
+      && el.tagName.toLowerCase() !== 'body'
+      && !el.id
+      // && indexCssWithClass === 1
+      && !isFirstList
+    ) {
+      // * 虽有可能为数组成员，但是已经离点击的元素较远，则设置为严格匹配模式
+      componentCss += ':nth-child(' + indexCss + ')';
+    } else if (
+      indexCss >= 1
+      && indexCssWithClass > 1
+      && isFirstList
+    ) {
+      // console.log('set isFirstList', indexCssWithClass);
+      // * 有多个兄弟元素并且兄弟元素之间结构构造相似，极可能为数组成员，并且离点击的元素最为接近，则设置为模糊匹配模式
+      isFirstList = false;
+    }
+
+    if (isFirstList && levelLimit > 0) {
+      --levelLimit;
+    }
+
+    // * css selector 严格模式
+    if (
+      indexCss >= 1
+      && el.tagName.toLowerCase() !== 'body'
+      && !el.id
+    ) {
+      componentCssStrict += ':nth-child(' + indexCss + ')';
+    }
+
     // * 如果最后的元素是img，生成xpath需要"img/@src"
     if (query === '' && el.tagName.toLowerCase() === 'img') {
       component += '~/~@src'; // * 替换了分隔符
     }
-    if (queryCss === '' && el.tagName.toLowerCase() === 'img') {
-      componentCss += '[src]'; // *
+    if (el.tagName.toLowerCase() === 'img') {
+      if (queryCss === '') {
+        componentCss += '[src]'; // *
+      }
+      if (queryCssStrict === '') {
+        componentCssStrict += '[src]'; // *
+      }
     }
+
+    // * 连接xpath
     query = '~/~' + component + query; // * 替换了分隔符
+
     // * 判断是否为直接子元素
-    if (queryCss !== '' && !hasBreak) {
+    if (!hasBreak) {
+      // * css selector 模糊模式
+      if (queryCss !== '') {
+        queryCss = ' >' + queryCss;
+      }
+      // * css selector 严格模式
+      if (queryCssStrict !== '') {
+        queryCssStrict = ' >' + queryCssStrict;
+      }
       hasBreak = false;
-      queryCss = ' >' + queryCss;
     }
+
     queryCss = ' ' + componentCss + queryCss; // *
+    queryCssStrict = ' ' + componentCssStrict + queryCssStrict; // *
+
+    hasBreak = false; // * 重置元素直接父子关系的状态
     el = el.parentNode;
   }
   return {
     query,
-    queryCss: queryCss.trim()
+    queryCss: queryCss.trim(),
+    queryCssStrict: queryCssStrict.trim()
   };
 };
 
@@ -523,6 +691,7 @@ xh.checkObjectRelated = function (obj, data) {
 }
 
 xh.setAreaCreateNested = function (area, data) {
+  let isSuccess = false;
   let areaArr;
   if (area.trim()) {
     areaArr = area.split('/');
@@ -537,22 +706,31 @@ xh.setAreaCreateNested = function (area, data) {
   }
   if (areaArr && areaArr.length > 0) {
     tmpObjCurr.meta = tmpObjCurr.meta ? tmpObjCurr.meta : {};
-    tmpObjCurr.meta[data.title] = data;
+    if (!tmpObjCurr.meta[data.title]) {
+      tmpObjCurr.meta[data.title] = data;
+      isSuccess = true;
+    }
   } else {
-    tmpObjCurr[data.title] = data;
+    if (!tmpObjCurr[data.title]) {
+      tmpObjCurr[data.title] = data
+      isSuccess = true;
+    }
   }
+  return isSuccess;
 }
 
 // * 弹窗确认按钮的回调方法
 xh.confirmSavePath = function (data) {
+  let isSuccess = false;
   console.log('confirm', data);
-  let { title, cssSelector, type, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
+  let { title, cssSelector, cssSelectorStrict, type, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
   // * 判断是否有选择的路径多级
   // * 通过action判断是新建识别区域还是选择识别区域
   if (action === xh.NEW_AREA && !areaNewLimitSetter) {
     let data = {
       title,
       cssSelector,
+      cssSelectorStrict,
       type,
       isAreaIdenti
     };
@@ -566,24 +744,29 @@ xh.confirmSavePath = function (data) {
     //   tmpObjCurr.meta = tmpObjCurr.meta ? tmpObjCurr.meta : {};
     //   tmpObjCurr.meta[data.title] = data;
     // } else {
-    xh.areaCreated[title] = data;
+    if (!xh.areaCreated[title]) {
+      xh.areaCreated[title] = data;
+      isSuccess = true;
+    }
     // }
   } else if (action === xh.NEW_AREA && areaNewLimitSetter && areaNewLimit) {
     let data = {
       title,
       cssSelector,
+      cssSelectorStrict,
       type,
       isAreaIdenti
     };
-    xh.setAreaCreateNested(areaNewLimit, data);
+    isSuccess = xh.setAreaCreateNested(areaNewLimit, data);
   } else if (action === xh.SELECT_AREA) {
     let data = {
       title,
       cssSelector,
+      cssSelectorStrict,
       type,
       isAreaIdenti
     };
-    xh.setAreaCreateNested(areaSelected, data);
+    isSuccess = xh.setAreaCreateNested(areaSelected, data);
     // let areaCreatedArr = Object.keys(xh.areaCreated);
     // for (let item of areaCreatedArr) {
     //   if (item === areaSelected) {
@@ -642,13 +825,18 @@ xh.confirmSavePath = function (data) {
   //   xh.cssRuleCol[title].push(cssSelector);
   // }
 
-  xh.closeCInputBox();
-  xh.clearHighlights();
-  xh.createHint('保存成功');
-  xh.showHint();
-  xh.closeHintDelay(2000);
-  // console.log('cssRuleCol', xh.cssRuleCol);
-  xh.currentSeletorType = xh.TYPE_STRING;
+  if (isSuccess) {
+    xh.closeCInputBox();
+    xh.clearHighlights();
+    xh.createHint('保存成功');
+    xh.showHint();
+    xh.closeHintDelay(2000);
+  } else {
+    xh.createHint('已经存在同名的区域，请使用其他名称', 'error');
+    xh.showHint();
+  }
+
+  xh.currentSeletorType = xh.TYPE_STRING; // * 设置选取的元素的取值类型（待删除）
   // * 测试预览功能
   // xh.previewRquest();
 }
@@ -724,10 +912,6 @@ xh.cancelInputBox = function () {
   xh.clearHighlights();
 }
 
-// :style="{
-//   top: inputBoxTop,
-//   left: inputBoxLeft
-// }"
 // * 创建弹框实例（vue版本）
 xh.createInputBoxIns = function () {
   xh.inputBoxIns = new Vue({
@@ -753,6 +937,7 @@ xh.createInputBoxIns = function () {
       inputBoxTop: xhBarInstance.popupPos.y + 'px',
       inputBoxLeft: xhBarInstance.popupPos.x + 'px',
       cssSeletorOptimizationRes: xhBarInstance.queryCssSelector.trim(),
+      cssSeletorStrictOptimizationRes: xhBarInstance.queryCssSelectorStrict.trim(),
       areaSelected: '',
       areaTitleSelected: this.titlePresets && this.titlePresets.length > 0 ? this.titlePresets[0] : '',
       customAreaTitle: '',
@@ -764,6 +949,7 @@ xh.createInputBoxIns = function () {
       resetDataStatus () {
         this.areaCreated = xh.areaCreated;
         this.cssSeletorOptimizationRes = xhBarInstance.queryCssSelector.trim();
+        this.cssSeletorStrictOptimizationRes = xhBarInstance.queryCssSelectorStrict.trim();
         this.inputBoxTop = xhBarInstance.popupPos.y + 'px';
         this.inputBoxLeft = xhBarInstance.popupPos.x + 'px';
         this.customTitle = '';
@@ -814,6 +1000,7 @@ xh.createInputBoxIns = function () {
           type: this.symbolPreset,
           action: this.radioArea,
           cssSelector: this.cssSeletorOptimizationRes,
+          cssSelectorStrict: this.cssSeletorStrictOptimizationRes,
           areaSelected: this.areaSelected,
           isAreaIdenti: this.radioArea === xh.NEW_AREA,
           areaTitleSelected: this.areaTitleSelected,
@@ -909,12 +1096,13 @@ xh.createInputBoxIns = function () {
 xh.fixingPopup = function (toggle, param) {
   let xpath = param && param.xpath ? param.xpath : '';
   let resultStr = param && param.resultStr ? param.resultStr : '';
+  // * 保存优化过后的css规则到xh的作用域中
+  xh.cssSeletorOptimizationRes = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
   xh.cssSeletorOptimizationRes = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
   // if (xh.docuBody) {
   //   xh.docuBody.removeChild(xh.divTmp);
   // }
   if (xhBarInstance.popupPos) {
-    // let isShow = toggle ? 'flex' : 'none';
     if (!xh.divTmpWrapper) {
       xh.divTmpWrapper = document.createElement('div');
     }
@@ -1152,12 +1340,14 @@ xh.evaluateQuery = function(query) {
   return [str, nodeCount];
 };
 
+// * herf白名单列表
 xh.hrefWhiteListKeyWord = [
-  'docs',
-  'zh',
-  'cn'
+  // 'docs',
+  // 'zh',
+  // 'cn'
 ];
 
+// * 自定义herf过滤
 xh.customHrefFilter = function (value) {
   for (let item of xh.hrefWhiteListKeyWord) {
     if (value.toLowerCase().indexOf(item.toLowerCase()) !== -1) {
@@ -1167,6 +1357,7 @@ xh.customHrefFilter = function (value) {
   return false;
 }
 
+// * 判断是否允许跳转
 xh.canJump = function (elTarget) {
   if (elTarget.attributes.href && xh.customHrefFilter(elTarget.attributes.href.value)) {
     return true;
@@ -1174,6 +1365,7 @@ xh.canJump = function (elTarget) {
   return false;
 }
 
+// * 设置需要强行打开的页面的链接
 xh.setNewTabForceOpenFunc = function (url) {
   console.log('url', url);
   let resUrl = '';
@@ -1203,6 +1395,7 @@ xh.setNewTabForceOpenFunc = function (url) {
   return resUrl;
 }
 
+// * 创建新页面
 xh.createNewTab = function (urlT) {
   console.log('urlT', urlT);
   let urlWithCustomQuery = xh.setNewTabForceOpenFunc(urlT);
@@ -1231,8 +1424,10 @@ xh.Bar = function () {
 
   // * 使用新分隔符的query
   this.queryNewSpe_ = null;
-  // * css selector
+  // * css selector 模糊模式
   this.queryCssSelector = null;
+  // * css selector 严格模式
+  this.queryCssSelectorStrict = null;
 
   // this.barFrame_ = document.createElement('iframe');
   // this.barFrame_.src = chrome.runtime.getURL('bar.html');
@@ -1256,17 +1451,25 @@ xh.Bar.prototype.isOpen_ = function () {
 // * 更新xpath和css selector，并更新顶部的显示框（显示框已删除）
 xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   xh.clearHighlights();
+
   let queryObj = null;
   if (el) {
     queryObj = xh.makeQueryForElement(el);
   }
+
   this.queryNewSpe_ = queryObj ? queryObj.query : '';
-  this.queryCssSelector = queryObj ? queryObj.queryCss : '';
-  console.log('queryCssSelector:');
-  console.log(this.queryCssSelector);
   this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
   console.log('query_:');
   console.log(this.query_);
+
+  this.queryCssSelector = queryObj ? queryObj.queryCss : '';
+  console.log('queryCssSelector:');
+  console.log(this.queryCssSelector);
+
+  this.queryCssSelectorStrict = queryObj ? queryObj.queryCssStrict : '';
+  console.log('queryCssSelectorStrict:');
+  console.log(this.queryCssSelectorStrict);
+
   // console.log(' updateQueryAndBar_ this.query_ ', this.query_ );
   this.updateBar_(true);
 };
