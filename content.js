@@ -29,6 +29,9 @@ var xh = xh || {};
 
 xh.SHIFT_KEYCODE = 16; // * shift字符
 xh.X_KEYCODE = 88; // * x字符
+xh.ALT_KEYCODE = 18; // * alt字符
+xh.CTRL_KEYCODE = 17; // * ctrl字符
+
 xh.CONTAIN_SLI = true; // * 限制是否使用元素在同级的序号作为匹配的关键词
 xh.CLASS_LIMIT = 1; // * 限制匹配关键词中所使用的class的个数
 
@@ -37,8 +40,8 @@ xh.TYPE_NUMBER = 'number';
 xh.TYPE_ARRAY = 'array';
 xh.TYPE_OBJECT = 'object';
 
-xh.NEW_AREA = 'newArea';
-xh.SELECT_AREA = 'selectArea';
+xh.NEW_AREA = 'newArea'; // * 新建区域
+xh.SELECT_AREA = 'selectArea'; // * 选择标识区域
 
 xh.docuBody = null; // * body对象
 xh.divTmpWrapper = null;
@@ -72,7 +75,10 @@ xh.previewIns = null; // * 预览窗口的实例
 
 xh.currentSeletorType = xh.TYPE_STRING; // * 保存当前元素的类型（已经没有用，等待相关关联的数据删除中）
 
-xh.LEVEL_LIMIT = 3;
+xh.LEVEL_LIMIT = 3; // * 最近模糊模式的限制层级
+
+xh.currElIsSelecting = false; // * 元素已经在选中的状态（鼠标点击了某个元素或者使用键盘快捷键来选择）
+xh.currElIsSelected = true; // * 通过鼠标或键盘选中时都会保存一份选择的DOM元素
 
 // * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
@@ -196,14 +202,14 @@ xh.makeQueryForElement = function(el) {
   let isFirstList = true;
   let levelLimit = xh.LEVEL_LIMIT;
   // console.log('el.textContent', el.textContent);
-  // * (暂定)此处判断type
-  let elChildNodes = el.childNodes;
-  if (
-    ( xh.formElementCondi(el.tagName) && !isNaN(Number(xh.getElementValue(el))) )
-    || ( elChildNodes && elChildNodes.length === 1 && elChildNodes[0].nodeName === '#text' && !isNaN(Number(elChildNodes[0].nodeValue)) )
-  ) {
-    xh.currentSeletorType = xh.TYPE_NUMBER;
-  }
+  // * (暂定)此处判断type（已废弃）
+  // let elChildNodes = el.childNodes;
+  // if (
+  //   ( xh.formElementCondi(el.tagName) && !isNaN(Number(xh.getElementValue(el))) )
+  //   || ( elChildNodes && elChildNodes.length === 1 && elChildNodes[0].nodeName === '#text' && !isNaN(Number(elChildNodes[0].nodeValue)) )
+  // ) {
+  //   xh.currentSeletorType = xh.TYPE_NUMBER;
+  // }
   for (; ; ) {
     // * null
     if (!el) {
@@ -546,16 +552,18 @@ xh.showPreview = function () {
 }
 
 // * 关闭预览窗口
-xh.closePreview = function () {
+xh.closePreview = function (event) {
+  event.stopPropagation();
   xh.previewIns && (xh.previewIns.style.display = 'none');
 }
 
 // * 提交按钮的回调
-xh.submitData = function () {
+xh.submitData = function (event) {
   // TODOS
   /**
    * 提交数据
    */
+  event.stopPropagation();
   console.log('提交数据');
   xh.closePreview();
   xh.createHint('提交成功（假）');
@@ -780,6 +788,8 @@ xh.confirmSavePath = function (data) {
     //   }
     // }
   }
+  // * 设置选择元素的状态
+  xh.currElIsSelecting = false;
   console.log('xh.areaCreated');
   console.log(xh.areaCreated);
 
@@ -852,7 +862,7 @@ xh.calcTargetElePos = function (e) {
 }
 
 // * 计算元素周围可用的空间
-xh.calcEleRoundPosAvalid = function (e) {
+xh.calcEleRoundPosAvalid = function () {
   const documentW = window.innerWidth;
   const documentH = window.innerHeight;
   // console.log('documentW', documentW);
@@ -910,6 +920,7 @@ xh.openCInputBox = function () {
 xh.cancelInputBox = function () {
   xh.closeCInputBox();
   xh.clearHighlights();
+  xh.currElIsSelecting = false;
 }
 
 // * 创建弹框实例（vue版本）
@@ -983,7 +994,8 @@ xh.createInputBoxIns = function () {
         }
         this.areaSelected = '';
       },
-      cancelInputBox () {
+      cancelInputBox (event) {
+        event.stopPropagation();
         xh.cancelInputBox();
       },
       confirmSavePath () {
@@ -1012,7 +1024,7 @@ xh.createInputBoxIns = function () {
         let res = [];
         let arr = Object.keys(areaCreated);
         for (let i of arr) {
-          if (areaCreated[i].isAreaIdenti && (xhBarInstance.queryCssSelector.trim()).indexOf(areaCreated[i].cssSelector) !== -1) {
+          if (areaCreated[i].isAreaIdenti && (xhBarInstance.queryCssSelectorStrict.trim()).indexOf(areaCreated[i].cssSelectorStrict) !== -1) {
             res.push(i);
             if (areaCreated[i].meta) {
               let metas = this.getAreaIdenti(areaCreated[i].meta);
@@ -1342,9 +1354,9 @@ xh.evaluateQuery = function(query) {
 
 // * herf白名单列表
 xh.hrefWhiteListKeyWord = [
-  // 'docs',
-  // 'zh',
-  // 'cn'
+  'docs',
+  'zh',
+  'cn'
 ];
 
 // * 自定义herf过滤
@@ -1413,8 +1425,10 @@ xh.createNewTab = function (urlT) {
 xh.Bar = function () {
   this.boundHandleRequest_ = this.handleRequest_.bind(this);
   this.boundMouseMove_ = this.mouseMove_.bind(this);
-  this.boundKeyDown_ = this.keyDown_.bind(this);
-  // * 绑定点击方法
+  // this.boundKeyDown_ = this.keyDown_.bind(this);
+  // * this绑定新的键盘监听
+  this.boundKeyDownExtend_ = this.keyDownExtend_.bind(this);
+  // * this绑定点击方法
   this.boundMouseClick = this.mouseClick_.bind(this);
 
   this.inDOM_ = false;
@@ -1497,6 +1511,8 @@ xh.Bar.prototype.showBar_ = function() {
     document.addEventListener('mousemove', that.boundMouseMove_);
     // * 添加点击事件
     document.addEventListener('click', that.boundMouseClick);
+    // * 绑定新的键盘监听
+    document.addEventListener('keydown', that.boundKeyDownExtend_);
     // * 打开弹框和显示匹配高亮(还原上次的操作状态)
     // xh.openCInputBox();
     // that.updateBar_(true);
@@ -1522,6 +1538,8 @@ xh.Bar.prototype.hideBar_ = function() {
     document.removeEventListener('mousemove', that.boundMouseMove_);
     // * 移除点击事件
     document.removeEventListener('click', that.boundMouseClick);
+    // * 移除新的键盘监听
+    document.removeEventListener('keydown', that.boundKeyDownExtend_);
     // * 关闭弹框
     xh.closeCInputBox();
     xh.clearHighlights();
@@ -1537,6 +1555,7 @@ xh.Bar.prototype.toggleBar_ = function() {
     // xh.preventHref();
   } else {
     this.hideBar_();
+    xh.currElIsSelecting = false;
     // xh.unPreventHref();
   }
 };
@@ -1552,6 +1571,7 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     // this.barFrame_.classList.toggle('bottom');
   } else if (request.type === 'hideBar') {
     this.hideBar_();
+    xh.currElIsSelecting = false;
     // xh.unPreventHref();
     window.focus();
   } else if (request.type === 'toggleBar') {
@@ -1576,6 +1596,7 @@ xh.Bar.prototype.previewCssRuleCol = function () {
 
 // * 删除已保存的css selector集合
 xh.Bar.prototype.resetCssRuleCol = function () {
+  xh.currElIsSelecting = false;
   xh.cssRuleCol = {};
   xh.createHint('取消成功');
   xh.showHint();
@@ -1592,6 +1613,61 @@ xh.Bar.prototype.mouseMove_ = function(e) {
   // }
 };
 
+// * 新的键盘监听方法（用于监控alt和ctrl的组合及单独使用）
+xh.Bar.prototype.keyDownExtend_ = function (event) {
+  console.log('keyDownExtend_ event:', event);
+  let ctrlKey = event.ctrlKey || event.metaKey;
+  let altKey = event.altKey;
+  let shiftKey = event.shiftKey;
+  let selectChangeStatus = false;
+  if (xh.currElIsSelecting) {
+    if (event.keyCode === xh.X_KEYCODE && shiftKey && !ctrlKey) {
+      console.log('快速向上选择');
+      let parentNode = xh.currElIsSelected && xh.currElIsSelected.parentNode ? xh.currElIsSelected.parentNode : null;
+      if (parentNode) {
+        this.currEl_ = parentNode;
+        selectChangeStatus = true;
+      }
+    } else if (event.keyCode === xh.X_KEYCODE && ctrlKey && !shiftKey) {
+      console.log('快速向下选择');
+      let childNodes = xh.currElIsSelected && xh.currElIsSelected.childNodes ? xh.currElIsSelected.childNodes : [];
+      if (childNodes.length > 0) {
+        this.currEl_ = childNodes[0];
+        selectChangeStatus = true;
+      }
+    } else if (event.keyCode === xh.X_KEYCODE && shiftKey && ctrlKey && !altKey) {
+      console.log('快速同级向下选择');
+      let nextSibling = xh.currElIsSelected && xh.currElIsSelected.nextSibling ? xh.currElIsSelected.nextSibling : null;
+      if (nextSibling) {
+        this.currEl_ = nextSibling;
+        selectChangeStatus = true;
+      }
+    } else if (event.keyCode === xh.X_KEYCODE && shiftKey && altKey && !ctrlKey) {
+      console.log('快速同级向上选择');
+      let previousSibling = xh.currElIsSelected && xh.currElIsSelected.previousSibling ? xh.currElIsSelected.previousSibling : null;
+      if (previousSibling) {
+        this.currEl_ = previousSibling;
+        selectChangeStatus = true;
+      }
+    }
+    if (selectChangeStatus) {
+      // * 设置已选中状态
+      xh.currElIsSelecting = true;
+      xh.currElIsSelected = this.currEl_;
+      // * 更新显示的结果，获取xpath和css selector
+      this.updateQueryAndBar_(this.currEl_);
+    }
+  } else if (!xh.currElIsSelecting && event.keyCode === xh.X_KEYCODE && altKey && this.currEl_) {
+    console.log('快速选择');
+    // * 设置已选中状态
+    xh.currElIsSelecting = true;
+    xh.currElIsSelected = this.currEl_;
+    // * 更新显示的结果，获取xpath和css selector
+    this.updateQueryAndBar_(this.currEl_);
+  }
+}
+
+// * 旧的键盘监听方法（已经废弃）
 xh.Bar.prototype.keyDown_ = function(e) {
   var ctrlKey = e.ctrlKey || e.metaKey;
   var shiftKey = e.shiftKey;
@@ -1632,23 +1708,15 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     if (
       domPath[i]
       && domPath[i].id
-      && domPath[i].id.indexOf('c-input-box') !== -1
+      && (domPath[i].id.indexOf('c-input-box') !== -1 || domPath[i].id.indexOf('c-preview-wrapper') !== -1)
     ) {
       // * id中有c-input-box
-      e.stopPropagation();
-      flagStop = true;
-      break;
-    } else if (
-      domPath[i]
-      && domPath[i].id
-      && domPath[i].id.indexOf('c-preview-wrapper') !== -1
-    ) {
       // * id中有c-preview-wrapper
       e.stopPropagation();
       flagStop = true;
       break;
     } else if (
-      // * class中有c-hint--wrappe
+      // * className中有c-hint--wrappe
       domPath[i]
       && domPath[i].className
       && domPath[i].className.indexOf('c-hint--wrapper') !== -1
@@ -1658,12 +1726,10 @@ xh.Bar.prototype.mouseClick_ = function (e) {
       break;
     }
   }
-  // * 阻止a标签默认事件
+  // * 阻止a标签默认事件（目前层级设为3）
   if (e.target.tagName === 'A') {
     e.preventDefault();
     if (xh.canJump(e.target)) {
-      // console.log('canjump true');
-      // console.log('attributes.href.value', e.target.attributes.href.value);
       let urlT = e.target.attributes.href.value;
       let href = urlT;
       if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
@@ -1676,9 +1742,7 @@ xh.Bar.prototype.mouseClick_ = function (e) {
   } else if (xh.checkParentHref(e)) {
     e.preventDefault();
     if (e.target.parentNode && xh.canJump(e.target.parentNode)) {
-      // console.log('canjump true');
-      // console.log('e.target.parentNode.attributes.href.value', e.target.parentNode.attributes.href.value);
-      let urlT = e.target.attributes.href.value;
+      let urlT = e.target.parentNode.attributes.href.value;
       let href = urlT;
       if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
         urlT = originS + href;
@@ -1690,9 +1754,7 @@ xh.Bar.prototype.mouseClick_ = function (e) {
   } else if (xh.checkParentHref(e.target.parentNode)) {
     e.preventDefault();
     if (e.target.parentNode && e.target.parentNode.parentNode && xh.canJump(e.target.parentNode.parentNode)) {
-      // console.log('canjump true');
-      // console.log('e.target.parentNode.parentNode.attributes.href.value', e.target.parentNode.parentNode.attributes.href.value);
-      let urlT = e.target.attributes.href.value;
+      let urlT = e.target.parentNode.parentNode.attributes.href.value;
       let href = urlT;
       if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
         urlT = originS + href;
@@ -1707,6 +1769,9 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     this.currEl_
     && !flagStop
   ) {
+    // * 设置已选中状态
+    xh.currElIsSelecting = true;
+    xh.currElIsSelected = this.currEl_;
     // * 计算当前元素的位置与周围可用的空间
     xh.calcTargetElePos(e);
     xh.calcEleRoundPosAvalid();
