@@ -46,6 +46,10 @@
 
 .xh-highlight {
   background-color: #fff59d !important;
+  border: 3px solid red !important;
+  box-sizing: border-box !important;
+  color: #FFDAB9 !important;
+  text-decoration: underline;
 }
 
 img.xh-highlight {
@@ -63,6 +67,9 @@ img.xh-highlight {
 .c-talign {
   text-align: left;
 }
+.c-block span {
+  color: initial !important;
+}
 .c-disp-ib {
   display: inline-block;
 }
@@ -76,14 +83,15 @@ img.xh-highlight {
   box-sizing: border-box;
   padding: 24px 12px;
   box-shadow: 0px 1px 5px 0 #bbb;
-  background-color: #FAFAFA;
+  background-color: #FCFCFC;
+  border-radius: 10px;
   align-items: center;
   transform: translateZ(3px) translateX(-50%) translateY(-50%);
   left: 50%;
   top: 50%;
 }
 #c-input-box .middle-left {
-  margin-left: 20px;
+  margin-left: 20px !important;
 }
 #c-input-box .select-input--wrapper {
   width: 100%;
