@@ -6,7 +6,7 @@
 header{
   margin-bottom: 10px;
   border-bottom: 1px solid #e1ddd8;
-  background: url('images/background-main.png');
+  background: url('../images/background-main.png');
 }
 
 .gtx-content {
@@ -14,7 +14,7 @@ header{
   font-family: 'Roboto',arial,sans-serif;
   font-size: 14px;
   margin: 0;
-  background: url('images/background.png');
+  background: url('../images/background.png');
 }
 
 ul {
@@ -54,7 +54,7 @@ ul {
 
 .status {
   margin-right: 10px; 
-  background-image: url('images/status.png');
+  background-image: url('../images/status.png');
   width: 17px;
   height: 15px;
   display: inline-block;

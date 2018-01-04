@@ -27,6 +27,8 @@ var xh = xh || {};
 ////////////////////////////////////////////////////////////
 // * 函数及常量、变量
 
+xh.FIRST_OPEN = true;
+
 xh.SHIFT_KEYCODE = 16; // * shift字符
 xh.X_KEYCODE = 88; // * x字符
 xh.ALT_KEYCODE = 18; // * alt字符
@@ -482,6 +484,15 @@ xh.checkParentHref = function (e) {
   } else {
     return false;
   }
+}
+
+// * 第一次开启功能时获取
+xh.getPresetData = function () {
+  // return axiosInstance({
+  //   method: 'get',
+  //   url: '/captcha'
+  // });
+  return Promise.resolve(1);
 }
 
 // * 需要过滤的列表
@@ -1580,34 +1591,53 @@ xh.Bar.prototype.updateBar_ = function(updateQuery) {
   // });
 };
 
-// * 显示顶部的显示框
+xh.Bar.prototype.prepareShowBar_ = function () {
+  // this.barFrame_.classList.remove('hidden');
+  // * 添加开启状态
+  xh.IS_OPEN = true;
+  chrome.runtime.sendMessage({
+    type: 'open'
+  });
+  document.addEventListener('mousemove', this.boundMouseMove_);
+  // * 添加点击事件
+  document.addEventListener('click', this.boundMouseClick);
+  // * 绑定新的键盘监听
+  document.addEventListener('keydown', this.boundKeyDownExtend_);
+  // * 打开弹框和显示匹配高亮(还原上次的操作状态)
+  // xh.openCInputBox();
+  // this.updateBar_(true);
+};
+
+// * 开启功能
 xh.Bar.prototype.showBar_ = function() {
-  var that = this;
-  function impl() {
-    // that.barFrame_.classList.remove('hidden');
-    // * 添加开启状态
-    xh.IS_OPEN = true;
-    chrome.runtime.sendMessage({
-      type: 'open'
-    });
-    document.addEventListener('mousemove', that.boundMouseMove_);
-    // * 添加点击事件
-    document.addEventListener('click', that.boundMouseClick);
-    // * 绑定新的键盘监听
-    document.addEventListener('keydown', that.boundKeyDownExtend_);
-    // * 打开弹框和显示匹配高亮(还原上次的操作状态)
-    // xh.openCInputBox();
-    // that.updateBar_(true);
-  }
+  // var that = this;
+  // function impl() {
+    
+  // }
   // ! 判断bar.html是否在DOM里
   if (!this.inDOM_) {
     this.inDOM_ = true;
     // document.body.appendChild(this.barFrame_);
   }
-  window.setTimeout(impl, 0);
+  // window.setTimeout(impl, 0);
+  window.setTimeout(() => {
+    if (xh.FIRST_OPEN) {
+      xh.getPresetData()
+        .then((data) => {
+          xh.FIRST_OPEN = false;
+          console.log(data);
+          this.prepareShowBar_();
+        })
+        .catch((err) => {
+          console.log('http getPresetData err:', err);
+        });
+    } else {
+      this.prepareShowBar_();
+    }
+  }, 0);
 };
 
-// * 隐藏顶部的显示框
+// * 关闭功能
 xh.Bar.prototype.hideBar_ = function() {
   var that = this;
   function impl() {
@@ -1629,7 +1659,7 @@ xh.Bar.prototype.hideBar_ = function() {
   window.setTimeout(impl, 0);
 };
 
-// * 控制顶部的显示框
+// * 控制开关
 xh.Bar.prototype.toggleBar_ = function() {
   // if (this.hidden_()) {
   if (!this.isOpen_()) {
