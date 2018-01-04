@@ -80,6 +80,8 @@ xh.LEVEL_LIMIT = 3; // * 最近模糊模式的限制层级
 xh.currElIsSelecting = false; // * 元素已经在选中的状态（鼠标点击了某个元素或者使用键盘快捷键来选择）
 xh.currElIsSelected = true; // * 通过鼠标或键盘选中时都会保存一份选择的DOM元素
 
+xh.currElIsMove = null; // * 保存鼠标移动时获取的元素
+
 // * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
   var p = primaryEl, s = siblingEl;
@@ -1126,47 +1128,51 @@ xh.createInputBoxIns = function () {
               <div class="c-identificationAreaSelect-wrapper">
                 <input type="radio" id="identificationAreaSelect" value="selectArea" v-model="radioArea"><span>选择识别区域</span>
               </div>
-              <select name="areaSelect" id="areaSelector" v-model="areaSelected" class="inline-b">
-                <option v-for="area in [''].concat(getAreaIdenti(this.areaCreated))" :key="area" :value="area">{{ area }}</option>
-              </select>
-              <div class="c-block c-talign">
-                <input type="radio" value="IATitlePreset" v-model="IATitleType" style="margin-left: 20px;">
-                <span>选择标题：</span>
-                <select name="areaTitleSelect" id="areaTitleSelector" v-model="areaTitleSelected" class="inline-b" style="margin-left: 20px;">
-                  <option v-for="title in titlePresets" :key="title" :value="title">{{ title }}</option>
+              <div class="c-block" v-show="radioArea === 'selectArea'">
+                <select name="areaSelect" id="areaSelector" v-model="areaSelected" class="inline-b">
+                  <option v-for="area in [''].concat(getAreaIdenti(this.areaCreated))" :key="area" :value="area">{{ area }}</option>
                 </select>
-              </div>
-              <div class="c-block c-talign">
-                <input type="radio" value="IATitleCustom" v-model="IATitleType" style="margin-left: 20px;"/>
-                <span>自定义标题：</span>
-                <input v-model="customAreaTitle" type="text" class="c-input-cl" id="customAreaTitle" style="margin-left: 20px;">
+                <div class="c-block c-talign">
+                  <input type="radio" value="IATitlePreset" v-model="IATitleType" style="margin-left: 20px;">
+                  <span>选择标题：</span>
+                  <select name="areaTitleSelect" id="areaTitleSelector" v-model="areaTitleSelected" class="inline-b mgt-middle" style="margin-left: 20px;">
+                    <option v-for="title in titlePresets" :key="title" :value="title">{{ title }}</option>
+                  </select>
+                </div>
+                <div class="c-block c-talign">
+                  <input type="radio" value="IATitleCustom" v-model="IATitleType" style="margin-left: 20px;"/>
+                  <span>自定义标题：</span>
+                  <input v-model="customAreaTitle" type="text" class="c-input-cl mgt-middle" id="customAreaTitle" style="margin-left: 20px;">
+                </div>
               </div>
             </div>
             <div id="identificationAreaCreate" class="c-identification-area-create">
               <div class="c-identificationAreaSelect-wrapper">
                 <input type="radio" id="identificationAreaCreate" value="newArea" v-model="radioArea"><span>新建识别区域</span>
               </div>
-              <div class="c-block c-talign" v-show="Object.keys(this.areaCreated).length > 0">
-                <input type="checkbox" value="areaNewLimitSetter" id="areaNewLimitSetter" v-model="areaNewLimitSetter" style="margin-left: 20px;"/>
-                <span>设定所属区域：</span>
-                <select name="areaNewLimit" id="areaNewLimit" v-model="areaNewLimit" class="inline-b" style="margin-left: 20px;">
-                  <option v-for="area in getAreaIdenti(this.areaCreated)" :key="area" :value="area">{{ area }}</option>
-                </select>
-              </div>
-              <div class="c-block c-talign">
-                <span class="middle-left">名称：</span>
-                <input v-model="customTitle" type="text" class="c-input-cl" id="popupOtherInput" style="margin-left: 0; margin-right: 0">
-              </div>
-              <div class="c-block c-talign">
-                <span class="middle-left">类型：</span>
-                <select name="symbolType" id="symbomSelect" v-model="symbolPreset" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
-                  <option v-for="preset in typePresets" :key="preset.value" :value="preset.value">{{ preset.name }}</option>
-                </select>
+              <div class="c-block" v-show="radioArea === 'newArea'">
+                <div class="c-block c-talign" v-show="Object.keys(this.areaCreated).length > 0">
+                  <input type="checkbox" value="areaNewLimitSetter" id="areaNewLimitSetter" v-model="areaNewLimitSetter" style="margin-left: 20px;"/>
+                  <span>设定所属区域：</span>
+                  <select name="areaNewLimit" id="areaNewLimit" v-model="areaNewLimit" class="inline-b mgt-middle" style="margin-left: 20px;">
+                    <option v-for="area in getAreaIdenti(this.areaCreated)" :key="area" :value="area">{{ area }}</option>
+                  </select>
+                </div>
+                <div class="c-block c-talign">
+                  <span class="middle-left">名称：</span>
+                  <input v-model="customTitle" type="text" class="c-input-cl" id="popupOtherInput" style="margin-left: 0; margin-right: 0">
+                </div>
+                <div class="c-block c-talign">
+                  <span class="middle-left">类型：</span>
+                  <select name="symbolType" id="symbomSelect" v-model="symbolPreset" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
+                    <option v-for="preset in typePresets" :key="preset.value" :value="preset.value">{{ preset.name }}</option>
+                  </select>
+                </div>
               </div>
             </div>
             <div class="c-block c-talign">
               <span class="middle-left">全局匹配层级：</span>
-              <input v-model="levelLimit" type="text" class="c-input-cl middle-left" @keydown="levelLimitKeydown" @change="levelLimitChange">
+              <input v-model="levelLimit" type="text" class="c-input-cl middle-left mgt-middle" @keydown="levelLimitKeydown" @change="levelLimitChange">
             </div>
             <div class="c-buttons">
               <div id="popupButtonCancel" @click="cancelInputBox">取消</div>
@@ -1744,10 +1750,10 @@ xh.Bar.prototype.resetCssRuleCol = function () {
 };
 
 xh.Bar.prototype.mouseMove_ = function(e) {
-  // if (this.currEl_ === e.toElement) {
-  //   return;
-  // }
-  // this.currEl_ = e.toElement;
+  if (xh.currElIsMove === e.toElement) {
+    return;
+  }
+  xh.currElIsMove = e.toElement;
   
   // if (e.shiftKey) {
   // }
@@ -1824,13 +1830,13 @@ xh.Bar.prototype.keyDownExtend_ = function (event) {
     } else if (!selectChangeStatus && selectChangeText) {
       xh.setHint(selectChangeText, 'warning');
     }
-  } else if (!xh.currElIsSelecting && event.keyCode === xh.X_KEYCODE && altKey && this.currEl_) {
+  } else if (!xh.currElIsSelecting && event.keyCode === xh.X_KEYCODE && altKey && xh.currElIsMove) {
     console.log('快速选择');
     // * 设置已选中状态
     xh.currElIsSelecting = true;
-    xh.currElIsSelected = this.currEl_;
+    xh.currElIsSelected = xh.currElIsMove;
     // * 更新显示的结果，获取xpath和css selector
-    this.updateQueryAndBar_(this.currEl_);
+    this.updateQueryAndBar_(xh.currElIsMove);
   }
 }
 
