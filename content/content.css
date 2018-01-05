@@ -78,7 +78,7 @@ img.xh-highlight {
   width: 400px;
   min-height: 400px;
   display: flex;
-  z-index: 99999;
+  z-index: 999;
   text-align: center;
   box-sizing: border-box;
   padding: 24px 12px;
@@ -189,7 +189,7 @@ img.xh-highlight {
   width: 100% !important;
   height: 100% !important;
   text-align: center !important;
-  z-index: 1000000 !important;
+  z-index: 999 !important;
 }
 .c-preview-wrapper .c-preview-content {
   background: #ffffff !important;
@@ -263,10 +263,24 @@ img.xh-highlight {
 }
 
 /* 帮助类 */
+
+.c-flex-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+.c-flex-row .el-button {
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin: 0 40px;
+}
+.c-large-font {
+  font-size: 24px;
+}
 #c-input-box .mgt-middle {
   margin-top: 12px !important;
-/* }
-#c-input-box input[type=radio] {
+}
+/* #c-input-box input[type=radio] {
   display: inline-block !important;
   width: auto !important;
 }

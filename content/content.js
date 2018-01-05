@@ -69,13 +69,13 @@ xh.IS_OPEN = false; // * 功能是否开启的状态
 xh.cssRuleCol = {}; // * 保存的xpath合集
 xh.areaCreated = {}; // * 新建的识别区域放在这里
 
+xh.submitCol = {}; // * 最后要提交的数据
+
 xh.hintIns = null; // * 操作提示实例
 
 xh.hintDelayIns = null; // * 提示的定时器
 
 xh.previewIns = null; // * 预览窗口的实例
-
-xh.currentSeletorType = xh.TYPE_STRING; // * 保存当前元素的类型（已经没有用，等待相关关联的数据删除中）
 
 xh.LEVEL_LIMIT = 3; // * 最近模糊模式的限制层级
 
@@ -83,6 +83,76 @@ xh.currElIsSelecting = false; // * 元素已经在选中的状态（鼠标点击
 xh.currElIsSelected = true; // * 通过鼠标或键盘选中时都会保存一份选择的DOM元素
 
 xh.currElIsMove = null; // * 保存鼠标移动时获取的元素
+
+xh.elMsgIns = null; // * element的message实例
+
+xh.elRuleMetaTableWrapper = null; // * 选择rulemeta的table容器实例 
+
+xh.elRuleMetaTableIns = null; // * 选择rulemeta的table实例
+
+xh.currentRuleRowSelected = null; // * 外部保存的选择行 
+xh.currentMetaRowSelected = null; // * 外部保存的选择行
+
+/**
+ * 测试数据：start
+ */
+
+xh.presetData = {
+  "rules": [{
+		"id": 1,
+    "pattern": "^http://www.baidu.com/news/\\d{10}\\.html$",
+		"pattern_type": 0,
+		"description": "说明"
+	}, {
+    "id": 2,
+    "pattern": "^https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects$",
+		"pattern_type": 0,
+		"description": "说明"
+  }],
+	"metas": [{
+		"id": 1,
+		"description": "说明",
+		"content": {
+			"title": {
+				"type": "string"
+			},
+			"comment": {
+				"type": "string"
+			},
+			"date": {
+				"type": "string",
+				"format": "date"
+			},
+			"author": {
+				"type": "string"
+			}
+		}
+	}, {
+		"id": 2,
+		"description": "说明",
+		"content": {
+			"title": {
+				"type": "string"
+			},
+			"content": {
+				"type": "string"
+			},
+			"date": {
+				"type": "string",
+				"format": "date"
+			},
+			"editor": {
+				"type": "string"
+			}
+		}
+	}]
+}
+
+/**
+ * 测试时局：end
+ */
+
+// console.log('Message', Vue.prototype.$message);
 
 // * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
@@ -205,15 +275,7 @@ xh.makeQueryForElement = function(el) {
   let hasBreak = false;
   let isFirstList = true;
   let levelLimit = xh.LEVEL_LIMIT;
-  // console.log('el.textContent', el.textContent);
-  // * (暂定)此处判断type（已废弃）
-  // let elChildNodes = el.childNodes;
-  // if (
-  //   ( xh.formElementCondi(el.tagName) && !isNaN(Number(xh.getElementValue(el))) )
-  //   || ( elChildNodes && elChildNodes.length === 1 && elChildNodes[0].nodeName === '#text' && !isNaN(Number(elChildNodes[0].nodeValue)) )
-  // ) {
-  //   xh.currentSeletorType = xh.TYPE_NUMBER;
-  // }
+
   for (; ; ) {
     // * null
     if (!el) {
@@ -492,7 +554,12 @@ xh.getPresetData = function () {
   //   method: 'get',
   //   url: '/captcha'
   // });
-  return Promise.resolve(1);
+  // return Promise.resolve(1);
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(1);
+    }, 2000);
+  });
 }
 
 // * 需要过滤的列表
@@ -551,6 +618,7 @@ xh.getPreviewInsTemplateString = function () {
 // * 打开预览的流程控制
 xh.previewRquest = function () {
   if (!xh.previewIns) {
+    xh.setSubmitCol();    
     xh.createPreviewIns();
     xh.bindPreviewListener();
     xh.setPreviewData();
@@ -616,7 +684,7 @@ xh.bindPreviewListener = function () {
 xh.setPreviewData = function () {
   if (xh.previewIns) {
     // let previewData = JSON.stringify(xh.cssRuleCol, null, 2);
-    let previewData = JSON.stringify(xh.areaCreated, null, 2);
+    let previewData = JSON.stringify(xh.submitCol, null, 2);
     // console.log('previewData', previewData);
     xh.previewIns.querySelector('#c-preview-data').innerHTML = previewData;
   }
@@ -723,6 +791,32 @@ xh.checkObjectRelated = function (obj, data) {
   return obj;
 }
 
+xh.setSubmitCol = function () {
+  xh.submitCol = {
+    name: 'selector name',
+    content: {},
+    meta: {}
+  };
+  xh.submitCol.rule_id = xh.currentRuleRowSelected.id;
+  xh.submitCol.meta_id = xh.currentMetaRowSelected.id;
+  for (let item of Object.entries(xh.areaCreated)) {
+    let metaCotentItem = xh.currentMetaRowSelected.content[item[0]];
+    xh.submitCol.content[item[0]] = {
+      path: '',
+      type: metaCotentItem.type,
+      schema: metaCotentItem
+    }
+    if (metaCotentItem.type === 'array') {
+      xh.submitCol.content[item[0]].path = item[1].cssSelector;
+    } else {
+      xh.submitCol.content[item[0]].path = item[1].cssSelectorStrict;
+    }
+    if (!xh.submitCol.meta[item[0]]) {
+      xh.submitCol.meta[item[0]] = metaCotentItem;
+    }
+  }
+}
+
 xh.setAreaCreateNested = function (area, data) {
   let isSuccess = false;
   let areaArr;
@@ -733,19 +827,17 @@ xh.setAreaCreateNested = function (area, data) {
   }
   let tmpObjCurr = xh.areaCreated;
   for (let i = 0; i < areaArr.length; i++) {
-    i === 0 ? (tmpObjCurr = tmpObjCurr[areaArr[i]]) : (tmpObjCurr = tmpObjCurr.meta[areaArr[i]]);
-    // console.log('i', i);
-    // console.log('tmpObjCurr', tmpObjCurr);
+    i === 0 ? (tmpObjCurr = tmpObjCurr[areaArr[i]]) : (tmpObjCurr = tmpObjCurr.children[areaArr[i]]);
   }
   if (areaArr && areaArr.length > 0) {
-    tmpObjCurr.meta = tmpObjCurr.meta ? tmpObjCurr.meta : {};
-    if (!tmpObjCurr.meta[data.title]) {
-      tmpObjCurr.meta[data.title] = data;
+    tmpObjCurr.children = tmpObjCurr.children ? tmpObjCurr.children : {};
+    if (!tmpObjCurr.children[data.meta]) {
+      tmpObjCurr.children[data.meta] = data;
       isSuccess = true;
     }
   } else {
-    if (!tmpObjCurr[data.title]) {
-      tmpObjCurr[data.title] = data
+    if (!tmpObjCurr[data.meta]) {
+      tmpObjCurr[data.meta] = data
       isSuccess = true;
     }
   }
@@ -756,124 +848,66 @@ xh.setAreaCreateNested = function (area, data) {
 xh.confirmSavePath = function (data) {
   let isSuccess = false;
   console.log('confirm', data);
-  let { title, cssSelector, cssSelectorStrict, type, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
+  let { cssSelector, cssSelectorStrict, meta, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
   // * 判断是否有选择的路径多级
   // * 通过action判断是新建识别区域还是选择识别区域
   if (action === xh.NEW_AREA && !areaNewLimitSetter) {
     let data = {
-      title,
       cssSelector,
       cssSelectorStrict,
-      type,
-      isAreaIdenti
+      isAreaIdenti,
+      meta
     };
-    // if (areaNewLimitSetter && areaNewLimit) {
-    //   let areaNewLimitArr = areaNewLimit.split('/');
-    //   let tmpObjCurr = xh.areaCreated;
-    //   let tmpObj = null;
-    //   for (let i = 0; i < areaNewLimitArr.length; i++) {
-    //     tmpObjCurr = tmpObjCurr[areaNewLimitArr[i]];
-    //   }
-    //   tmpObjCurr.meta = tmpObjCurr.meta ? tmpObjCurr.meta : {};
-    //   tmpObjCurr.meta[data.title] = data;
-    // } else {
-    if (!xh.areaCreated[title]) {
-      xh.areaCreated[title] = data;
+    if (!xh.areaCreated[meta]) {
+      xh.areaCreated[meta] = data;
       isSuccess = true;
     }
     // }
   } else if (action === xh.NEW_AREA && areaNewLimitSetter && areaNewLimit) {
     let data = {
-      title,
       cssSelector,
       cssSelectorStrict,
-      type,
-      isAreaIdenti
+      isAreaIdenti,
+      meta
     };
     isSuccess = xh.setAreaCreateNested(areaNewLimit, data);
   } else if (action === xh.SELECT_AREA) {
     let data = {
-      title,
       cssSelector,
       cssSelectorStrict,
-      type,
-      isAreaIdenti
+      isAreaIdenti,
+      meta
     };
     isSuccess = xh.setAreaCreateNested(areaSelected, data);
-    // let areaCreatedArr = Object.keys(xh.areaCreated);
-    // for (let item of areaCreatedArr) {
-    //   if (item === areaSelected) {
-    //     xh.areaCreated[item].meta = xh.areaCreated[item].meta ? xh.areaCreated[item].meta : {};
-    //     xh.areaCreated[item].meta[title] = {
-    //       title,
-    //       cssSelector,
-    //       type,
-    //       isAreaIdenti
-    //     }
-    //   }
-    // }
   }
   // * 设置选择元素的状态
   xh.currElIsSelecting = false;
+
   console.log('xh.areaCreated');
   console.log(xh.areaCreated);
-
-  // * test start:
-  // * 获取属性名的数组并循环判断是否有上下级关系（判断关系有无可能是object）(测试)
-  // xh.cssRuleCol[title + new Date().getTime()] = data;
-  // let cssRuleColArr = Object.keys(xh.cssRuleCol);
-  // for (let item of cssRuleColArr) {
-  //   if (cssSelector.indexOf(xh.cssRuleCol[item].cssSelector) !== -1) {
-  //     if (!xh.cssRuleCol[item].meta) {
-  //       xh.cssRuleCol[item].meta = {};
-  //       xh.cssRuleCol[item].type = 'object';
-  //     }
-  //     xh.cssRuleCol[item].meta[title + new Date().getTime()] = data;
-  //     break;
-  //   } else if (xh.cssRuleCol[item].cssSelector.indexOf(cssSelector) !== -1) {
-  //     xh.cssRuleCol[title + new Date().getTime()] = data;
-  //     data.meta = xh.cssRuleCol[item];
-  //     data.type = 'object';
-  //     delete xh.cssRuleCol[item];
-  //     break;
-  //   }
-  // }
-  // if (cssRuleColArr.length === 0) {
-  //   xh.cssRuleCol[title + new Date().getTime()] = data;
-  // }
-  
-  // * test end:
-  // for (let item of cssRuleColArr) {
-  //   if (xh.cssRuleCol[item].indexOf(cssSelector) !== -1) {
-  //     xh.closeCInputBox();
-  //     xh.clearHighlights();
-  //     xh.createHint('已存在相同的<规则>', 'error');
-  //     xh.showHint();
-  //     xh.closeHintDelay(2000);
-  //     return;
-  //   }
-  // }
-  // if (xh.cssRuleCol[title]) {
-  //   xh.cssRuleCol[title].push(cssSelector);
-  // } else {
-  //   xh.cssRuleCol[title] = [];
-  //   xh.cssRuleCol[title].push(cssSelector);
-  // }
 
   if (isSuccess) {
     xh.closeCInputBox();
     xh.clearHighlights();
-    xh.createHint('保存成功');
-    xh.showHint();
-    xh.closeHintDelay(2000);
+    xh.setElMessage({
+      message: '保存成功',
+      duration: 2000,
+      showClose: true,
+      type: 'success'
+    });
+    // xh.createHint('保存成功');
+    // xh.showHint();
+    // xh.closeHintDelay(2000);
   } else {
-    xh.createHint('已经存在同名的区域，请使用其他名称', 'error');
-    xh.showHint();
+    // xh.createHint('已经存在同名的区域，请使用其他名称', 'error');
+    // xh.showHint();
+    xh.setElMessage({
+      message: '已经存在同名的区域，请使用其他名称',
+      duration: 2000,
+      showClose: true,
+      type: 'error'
+    });
   }
-
-  xh.currentSeletorType = xh.TYPE_STRING; // * 设置选取的元素的取值类型（待删除）
-  // * 测试预览功能
-  // xh.previewRquest();
 }
 
 // * 计算当前元素的位置
@@ -917,7 +951,118 @@ xh.calcEleRoundPosAvalid = function () {
   // console.log('xhBarInstance.popupPos', xhBarInstance.popupPos);
 }
 
-// * keyDownKeyWhiteList
+// * 创建选择rule的table
+xh.createRuleMetaTable = function () {
+  xh.elRuleMetaTableIns = new Vue({
+    data: {
+      dialogTableVisible: true,
+      ruleData: xh.presetData.rules,
+      metaData: xh.presetData.metas,
+      currentRuleRowSelected: null,
+      currentMetaRowSelected: null
+    },
+    methods: {
+      // resetDataStatus () {
+      // },
+      handleRuleChange (row) {
+        this.currentRuleRowSelected = row;
+      },
+      handleMetaChange (row) {
+        this.currentMetaRowSelected = row;
+      },
+      transformMetaContent (scope) {
+        let arr = Object.keys(scope.row);
+        return arr.join(', ');
+      },
+      setDialogVisible (param) {
+        this.dialogTableVisible = param;
+      },
+      confirmSelected () {
+        if (!this.currentMetaRowSelected) {
+          xh.setElMessage({
+            message: '还未选择meta',
+            duration: 2000,
+            showClose: true,
+            type: 'warning'
+          });
+          return;
+        }
+        xh.currentRuleRowSelected = this.currentRuleRowSelected;
+        xh.currentMetaRowSelected = this.currentMetaRowSelected;
+        this.setDialogVisible(false);
+        console.log('xh.currentRuleRowSelected', xh.currentRuleRowSelected);
+        console.log('xh.currentMetaRowSelected', xh.currentMetaRowSelected);
+      }
+    },
+    template: `
+      <div class="c-el-table-wrapper">
+        <el-dialog title="" :visible.sync="dialogTableVisible">
+          <div class="c-large-font">Rules</div>
+          <el-table :data="ruleData" :max-height="400" @current-change="handleRuleChange" highlight-current-row :show-overflow-tooltip="true">
+            <el-table-column property="pattern" label="正则模式"></el-table-column>
+            <el-table-column property="pattern_type" label="模式类型"></el-table-column>
+            <el-table-column property="description" label="说明"></el-table-column>
+          </el-table>
+          <div class="c-large-font" style="margin-top: 36px;">Metas</div>
+          <el-table :data="metaData" :max-height="400" @current-change="handleMetaChange" highlight-current-row :show-overflow-tooltip="true">
+            <el-table-column property="description" label="说明"></el-table-column>
+            <el-table-column property="content" label="内容">
+              <template slot-scope="scope">
+                <div>{{ transformMetaContent(scope) }}</div>
+              </template>
+            </el-table-column>
+          </el-table>
+          <span slot="footer" class="dialog-footer">
+            <el-button type="danger" @click="setDialogVisible(false)">取消</el-button>
+            <el-button type="primary" @click="confirmSelected">确认选择</el-button>
+          </span>
+        </el-dialog>
+      </div>
+    `
+  });
+}
+
+// * 设置rule的table
+xh.setRuleMetaTable = function () {
+  if (!document.querySelector('.c-el-table-wrapper')) {
+    xh.elRuleMetaTableWrapper = document.createElement('div');
+    xh.elRuleMetaTableWrapper.id = "elRuleMetaTableWrapper";
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(xh.elRuleMetaTableWrapper);
+    xh.createRuleMetaTable();
+    xh.elRuleMetaTableIns.$mount('#elRuleMetaTableWrapper');
+  } else {
+    xh.showRuleMetaTableWrapper();
+  }
+}
+
+// * 显示Rule的table容器
+xh.showRuleMetaTableWrapper = function () {
+  xh.elRuleMetaTableIns.setDialogVisible(true);
+  // document.querySelector('#elRuleMetaTableWrapper').style.display = 'block';
+}
+
+// * 隐藏Rule的table容器
+xh.hideRuleMetaTableWrapper = function () {
+  xh.elRuleMetaTableIns.setDialogVisible(false);
+  // document.querySelector('#elRuleMetaTableWrapper').style.display = 'none';
+}
+
+// // * 创建选择meta的table
+// xh.createMetaTable = function () {
+//   xh.elMetaTableIns = new Vue({
+
+//   });
+// }
+
+// // * 设置meta的table
+// xh.setMetaTable = function () {
+  
+// }
+
+// * 字符键白名单
 xh.keyDownKeyWhiteList = [
   'Backspace',
   'ArrowUp',
@@ -962,20 +1107,6 @@ xh.tagNameExcludeList = [
   '#text'
 ];
 
-xh.popupSelectChange = function (e) {
-  // console.log('popupSelectChange', e);
-  // const eV = e.target.value;
-  // if (eV === '-1' || eV === -1) {
-  //   xh.popupOtherInput && (xh.popupOtherInput.style.display = 'block');
-  // } else {
-  //   xh.popupOtherInput && (xh.popupOtherInput.style.display = 'none');
-  // }
-}
-
-xh.popupOtherInputChange = function (e) {
-  // console.log('popupOtherInputChange', e);
-}
-
 // * 关闭弹窗
 xh.closeCInputBox = function () {
   xh.divTmpWrapper && (xh.divTmpWrapper.style.display = 'none');
@@ -998,21 +1129,21 @@ xh.createInputBoxIns = function () {
   xh.inputBoxIns = new Vue({
     data: {
       areaCreated: xh.areaCreated,
-      typePresets: [{
-        name: '单块内容',
-        value: 'object'
-      }, {
-        name: '列表',
-        value: 'array'
-      }, {
-        name: '字符串',
-        value: 'string'
-      }, {
-        name: '数值',
-        value: 'number'
-      }],
+      // typePresets: [{
+      //   name: '单块内容',
+      //   value: 'object'
+      // }, {
+      //   name: '列表',
+      //   value: 'array'
+      // }, {
+      //   name: '字符串',
+      //   value: 'string'
+      // }, {
+      //   name: '数值',
+      //   value: 'number'
+      // }],
       titlePresets: ['标题1', '标题2', '标题3', '标题4'],
-      symbolPreset: '',
+      presetMeta: '',
       customTitle: '',
       radioArea: 'newArea',
       inputBoxTop: xhBarInstance.popupPos.y + 'px',
@@ -1040,7 +1171,7 @@ xh.createInputBoxIns = function () {
         this.IATitleType = 'IATitlePreset';
         this.areaNewLimitSetter = '';
         this.levelLimit = xh.LEVEL_LIMIT;
-        this.setSymbolPresetDefault();
+        this.setpresetMetaDefault();
         this.setAreaNewLimitDefault();
         this.setRadioAreaDefault();
       },
@@ -1052,8 +1183,9 @@ xh.createInputBoxIns = function () {
           this.areaNewLimit = '';
         }
       },
-      setSymbolPresetDefault () {
-        this.symbolPreset = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
+      setpresetMetaDefault () {
+        // this.presetMeta = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
+        this.presetMeta = '';
       },
       setRadioAreaDefault () {
         let areaCreatedArr = Object.keys(this.areaCreated);
@@ -1080,8 +1212,7 @@ xh.createInputBoxIns = function () {
           title = this.customAreaTitle;
         }
         xh.confirmSavePath({
-          title: title,
-          type: this.symbolPreset,
+          meta: this.presetMeta,
           action: this.radioArea,
           cssSelector: this.cssSeletorOptimizationRes,
           cssSelectorStrict: this.cssSeletorStrictOptimizationRes,
@@ -1123,13 +1254,21 @@ xh.createInputBoxIns = function () {
       levelLimitChange ($event) {
         console.log('levelLimitChange', $event);
         xh.setLEVEL_LIMIT($event.target.value);
+      },
+      getCurrentRuleMeta () {
+        let arr = [];
+        if (xh.currentMetaRowSelected && xh.currentMetaRowSelected.content) {
+          arr = Object.keys(xh.currentMetaRowSelected.content);
+        }
+        console.log('getCurrentRuleMeta arr', arr);
+        return arr;
       }
     },
     computed: {
     },
     mounted () {
-      // this.symbolPreset = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
-      this.setSymbolPresetDefault();
+      // this.presetMeta = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
+      this.setpresetMetaDefault();
     },
     template: `
       <div id="c-input-box-ins-wrapper">
@@ -1170,13 +1309,9 @@ xh.createInputBoxIns = function () {
                   </select>
                 </div>
                 <div class="c-block c-talign">
-                  <span class="middle-left">名称：</span>
-                  <input v-model="customTitle" type="text" class="c-input-cl" id="popupOtherInput" style="margin-left: 0; margin-right: 0">
-                </div>
-                <div class="c-block c-talign">
                   <span class="middle-left">类型：</span>
-                  <select name="symbolType" id="symbomSelect" v-model="symbolPreset" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
-                    <option v-for="preset in typePresets" :key="preset.value" :value="preset.value">{{ preset.name }}</option>
+                  <select name="symbolType" id="symbomSelect" v-model="presetMeta" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
+                    <option v-for="metas in getCurrentRuleMeta()" :key="metas" :value="metas">{{ metas }}</option>
                   </select>
                 </div>
               </div>
@@ -1195,6 +1330,10 @@ xh.createInputBoxIns = function () {
     `
   });
 }
+{/* <div class="c-block c-talign">
+<span class="middle-left">名称：</span>
+<input v-model="customTitle" type="text" class="c-input-cl" id="popupOtherInput" style="margin-left: 0; margin-right: 0">
+</div> */}
 
 // * 创建弹框实例和定位弹框实例
 xh.fixingPopup = function (toggle, param) {
@@ -1229,31 +1368,31 @@ xh.fixingPopup = function (toggle, param) {
       xh.openCInputBox();
     }
     
-    let popupDomS = 
-      `
-        <div id="c-input-box">
-          <div class="select-input--wrapper">
-            <div id="identificationArea" class="c-identification-area">
+    // let popupDomS = 
+    //   `
+    //     <div id="c-input-box">
+    //       <div class="select-input--wrapper">
+    //         <div id="identificationArea" class="c-identification-area">
               
-            </div>
-            <div id="identificationAreaCreate" class="c-identification-area-create">
-              <div class="c-identificationAreaSelect-wrapper">
-                <input type="radio" id="identificationAreaSelect" checked>新建识别区域</input>
-              </div>
-              <input type="text" id="popupOtherInput" placeholder="请输入自定义的标题">
-              <select name="symbolType" id="symbomSelect">
-                <option value=""></option>
-                <option value="array">列表</option>
-                <option value="object">单块内容</option>
-              </select>
-            </div>
-            <div class="c-buttons">
-              <div id="popupButtonCancel">取消</div>
-              <div id="popupButtonConfirm">确定</div>
-            </div>
-          </div>
-        </div>
-      `;
+    //         </div>
+    //         <div id="identificationAreaCreate" class="c-identification-area-create">
+    //           <div class="c-identificationAreaSelect-wrapper">
+    //             <input type="radio" id="identificationAreaSelect" checked>新建识别区域</input>
+    //           </div>
+    //           <input type="text" id="popupOtherInput" placeholder="请输入自定义的标题">
+    //           <select name="symbolType" id="symbomSelect">
+    //             <option value=""></option>
+    //             <option value="array">列表</option>
+    //             <option value="object">单块内容</option>
+    //           </select>
+    //         </div>
+    //         <div class="c-buttons">
+    //           <div id="popupButtonCancel">取消</div>
+    //           <div id="popupButtonConfirm">确定</div>
+    //         </div>
+    //       </div>
+    //     </div>
+    //   `;
       // <div class="c-textarea--wrapper wrapper--textarea-xpath">
       //         <textarea id="popupTextareaXpath" readonly="true"></textarea>
       //       </div>
@@ -1512,6 +1651,19 @@ xh.createNewTab = function (urlT) {
   });
 }
 
+// * 创建element-ui message的方法
+xh.setElMessage = function (param) {
+  xh.elMsgIns = Vue.prototype.$message({
+    showClose: param.showClose ? param.showClose : false,
+    message: param.message,
+    type: param.type,
+    duration: param.duration ? param.duration : 0,
+    onClose (ins) {
+      xh.elMsgIns = null;
+    }
+  });
+}
+
 ////////////////////////////////////////////////////////////
 // xh.Bar class definition
 
@@ -1622,41 +1774,75 @@ xh.Bar.prototype.showBar_ = function() {
   // window.setTimeout(impl, 0);
   window.setTimeout(() => {
     if (xh.FIRST_OPEN) {
+      if (!xh.elMsgIns) {
+        xh.setElMessage({
+          showClose: true,
+          duration: 0,
+          type: 'info',
+          message: '获取数据中'
+        });
+      }
       xh.getPresetData()
         .then((data) => {
           xh.FIRST_OPEN = false;
+          if (xh.elMsgIns) {
+            xh.elMsgIns.close();
+            xh.elMsgIns = null;
+          }
+          xh.setElMessage({
+            showClose: true,
+            duration: 2000,
+            type: 'success',
+            message: '获取成功'
+          });
           console.log(data);
+          // TODOS
+          /**
+           * 保存获取的数据
+           * 显示数据在表格上（在popup额外提供一个入口）
+           */
+          // * 备开启功能前的准备
           this.prepareShowBar_();
+          xh.setRuleMetaTable();
         })
         .catch((err) => {
+          if (xh.elMsgIns) {
+            xh.elMsgIns.close();
+            xh.elMsgIns = null;
+          }
           console.log('http getPresetData err:', err);
         });
     } else {
       this.prepareShowBar_();
+      xh.setRuleMetaTable();
     }
   }, 0);
 };
 
 // * 关闭功能
 xh.Bar.prototype.hideBar_ = function() {
-  var that = this;
-  function impl() {
-    // that.barFrame_.classList.add('hidden');
+  // var that = this;
+  // function impl() {
+    
+  // }
+  window.setTimeout(() => {
+    // this.barFrame_.classList.add('hidden');
     // * 添加关闭状态
     xh.IS_OPEN = false;
     chrome.runtime.sendMessage({
       type: 'close'
     });
-    document.removeEventListener('mousemove', that.boundMouseMove_);
+    document.removeEventListener('mousemove', this.boundMouseMove_);
     // * 移除点击事件
-    document.removeEventListener('click', that.boundMouseClick);
+    document.removeEventListener('click', this.boundMouseClick);
     // * 移除新的键盘监听
-    document.removeEventListener('keydown', that.boundKeyDownExtend_);
+    document.removeEventListener('keydown', this.boundKeyDownExtend_);
     // * 关闭弹框
     xh.closeCInputBox();
     xh.clearHighlights();
-  }
-  window.setTimeout(impl, 0);
+    // * 关闭规则选择的table的显示窗口
+    xh.hideRuleMetaTableWrapper();
+  }, 0);
 };
 
 // * 控制开关
@@ -1697,6 +1883,8 @@ xh.Bar.prototype.setCurrElExcludeList = function (node) {
     && className.indexOf('c-hint-symbol') === -1
     && className.indexOf('c-input-box-ins-symbol') === -1
     && className.indexOf('c-preview-symbol') === -1
+    && className.indexOf('c-el-table-wrapper') === -1
+    && className.indexOf('el-message') === -1
   ) {
     this.currEl_ = node;
     return true;
@@ -1756,6 +1944,8 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     this.previewCssRuleCol();
   } else if (request.type === 'cancelAll') {
     this.resetCssRuleCol();
+  } else if (request.type === 'openTableDialog') {
+    this.openTableDialog();
   }
 };
 
@@ -1764,9 +1954,12 @@ xh.Bar.prototype.previewCssRuleCol = function () {
   if (Object.keys(xh.areaCreated).length > 0) {
     xh.previewRquest();
   } else {
-    xh.createHint('暂无数据，请添加数据', 'warning');
-    xh.showHint();
-    xh.closeHintDelay(2000);
+    xh.setElMessage({
+      type: 'warning',
+      showClose: true,
+      duration: 2000,
+      message: '暂无数据，请先添加数据'
+    });
   }
 }
 
@@ -1778,6 +1971,20 @@ xh.Bar.prototype.resetCssRuleCol = function () {
   xh.showHint();
   xh.closeHintDelay(2000);
 };
+
+// * 打开选择rule的table
+xh.Bar.prototype.openTableDialog = function () {
+  if (xh.IS_OPEN) {
+    xh.elRuleMetaTableIns.setDialogVisible(true);
+  } else {
+    xh.setElMessage({
+      type: 'error',
+      message: '请先开启功能一次',
+      duration: 2000,
+      showClose: true
+    });
+  }
+}
 
 xh.Bar.prototype.mouseMove_ = function(e) {
   if (xh.currElIsMove === e.toElement) {
@@ -1922,7 +2129,9 @@ xh.Bar.prototype.mouseClick_ = function (e) {
       // * className中有c-hint--wrappe
       domPath[i]
       && domPath[i].className
-      && domPath[i].className.indexOf('c-hint--wrapper') !== -1
+      && (domPath[i].className.indexOf('c-hint--wrapper') !== -1
+      || domPath[i].className.indexOf('el-message') !== -1
+      || domPath[i].className.indexOf('c-el-table-wrapper') !== -1)
     ) {
       e.stopPropagation();
       flagStop = true;

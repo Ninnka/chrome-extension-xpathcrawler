@@ -13,7 +13,8 @@ const typeList = {
   previewAndSubmit: 'previewAndSubmit',
   cancelAll: 'cancelAll',
   toggleBar: 'toggleBar',
-  getStatus: 'getStatus'
+  getStatus: 'getStatus',
+  openTableDialog: 'openTableDialog'
 }
 
 // 监听是否开启或关闭状态
@@ -75,9 +76,14 @@ function switchStatus() {
   sendMessage_(typeList.toggleBar);
 }
 
+function openTableDialog () {
+  sendMessage_(typeList.openTableDialog);
+}
+
 // 为按钮添加点击事件
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('submit').addEventListener('click', messageBox);
   document.getElementById('cancel').addEventListener('click', cancel);
   document.getElementById('status').addEventListener('click', switchStatus);
+  document.querySelector('#selectRule').addEventListener('click', openTableDialog);
 });
