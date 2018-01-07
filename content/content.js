@@ -46,19 +46,16 @@ xh.NEW_AREA = 'newArea'; // * 新建区域
 xh.SELECT_AREA = 'selectArea'; // * 选择标识区域
 
 xh.docuBody = null; // * body对象
+
 xh.divTmpWrapper = null;
 xh.divTmp = null; // * 弹窗对象
-xh.popupSelect = null; // * 弹窗里的select
-xh.popupOtherInput = null; // * 弹窗里的其他输入框
-xh.popupTextareaXpath = null; // * 弹窗里的xpath框
-xh.popupTextareaResult = null; // * 弹窗里的result框
 
-// * popup中的确认和取消按钮
-xh.popupButtonConfirm = null;
-xh.popupButtonCancel = null;
+// xh.popupSelect = null; // * 弹窗里的select
+// xh.popupOtherInput = null; // * 弹窗里的其他输入框
+// xh.popupTextareaXpath = null; // * 弹窗里的xpath框
+// xh.popupTextareaResult = null; // * 弹窗里的result框
 
-// * 输入弹框的vue实例
-xh.inputBoxIns = null;
+xh.inputBoxIns = null; // * 输入弹框的vue实例
 
 // * 优化后的css selector
 xh.cssSeletorOptimizationRes = ''; // * 模糊模式
@@ -77,7 +74,7 @@ xh.hintDelayIns = null; // * 提示的定时器
 
 xh.previewIns = null; // * 预览窗口的实例
 
-xh.LEVEL_LIMIT = 3; // * 最近模糊模式的限制层级
+xh.LEVEL_LIMIT = 0; // * 最近模糊模式的限制层级
 
 xh.currElIsSelecting = false; // * 元素已经在选中的状态（鼠标点击了某个元素或者使用键盘快捷键来选择）
 xh.currElIsSelected = true; // * 通过鼠标或键盘选中时都会保存一份选择的DOM元素
@@ -85,10 +82,13 @@ xh.currElIsSelected = true; // * 通过鼠标或键盘选中时都会保存一�
 xh.currElIsMove = null; // * 保存鼠标移动时获取的元素
 
 xh.elMsgIns = null; // * element的message实例
+xh.elMsgBoxIns = null; // * element的messageBox实例
 
-xh.elRuleMetaTableWrapper = null; // * 选择rulemeta的table容器实例 
-
+xh.elRuleMetaTableWrapper = null; // * 选择rulemeta的table容器实例
 xh.elRuleMetaTableIns = null; // * 选择rulemeta的table实例
+
+xh.elMdDataTableWrapper = null; // * 选择rulemeta的table容器实例
+xh.elMdDataTableIns = null; // * 修改数据的table容器实例
 
 xh.currentRuleRowSelected = null; // * 外部保存的选择行 
 xh.currentMetaRowSelected = null; // * 外部保存的选择行
@@ -617,8 +617,8 @@ xh.getPreviewInsTemplateString = function () {
 
 // * 打开预览的流程控制
 xh.previewRquest = function () {
+  xh.setSubmitCol();
   if (!xh.previewIns) {
-    xh.setSubmitCol();    
     xh.createPreviewIns();
     xh.bindPreviewListener();
     xh.setPreviewData();
@@ -626,6 +626,13 @@ xh.previewRquest = function () {
     xh.showPreview();
     xh.setPreviewData();
   }
+}
+
+// * 打开修改数据的对话框流程
+
+xh.mdDataRequest = function () {
+  xh.setSubmitCol();
+  xh.setMdDataTable();
 }
 
 // * 显示预览窗口
@@ -977,6 +984,50 @@ xh.createRuleMetaTable = function () {
       setDialogVisible (param) {
         this.dialogTableVisible = param;
       },
+      resetRuleRow () {
+        xh.currentRuleRowSelected = null;
+      },
+      resetRuleSelected () {
+        this.$refs.rulesTable.setCurrentRow(null);
+      },
+      resetMetaRow () {
+        xh.currentMetaRowSelected = null;
+      },
+      resetMetaSelectedPure () {
+        this.$refs.metasTable.setCurrentRow(null);
+      },
+      resetMetaSelected () {
+        if (!this.currentMetaRowSelected) {
+          return;
+        }
+        if (xh.currentMetaRowSelected) {
+          xh.setElMessageBox({
+            message: '是否取消meta，取消后需要重新进行采集',
+            callback: () => {
+              this.resetMetaRow();
+              this.resetMetaSelectedPure()
+            }
+          });
+        } else if (this.currentMetaRowSelected) {
+          this.resetMetaSelectedPure();
+        }
+      },
+      resetSelected () {
+        if (xh.currentRuleRowSelected && xh.currentMetaRowSelected) {
+          xh.setElMessageBox({
+            message: '是否取消全部选择，取消meta后需要重新进行采集',
+            callback: () => {
+              this.resetRuleRow();
+              this.resetRuleSelected();
+              this.resetMetaRow();
+              this.resetMetaSelectedPure();
+            }
+          });
+        } else if (this.currentRuleRowSelected && this.currentMetaRowSelected) {
+          this.resetRuleSelected();
+          this.resetMetaSelectedPure();
+        }
+      },
       confirmSelected () {
         if (!this.currentMetaRowSelected) {
           xh.setElMessage({
@@ -986,34 +1037,47 @@ xh.createRuleMetaTable = function () {
             type: 'warning'
           });
           return;
+        } else if (!this.currentRuleRowSelected) {
+          xh.setElMessage({
+            message: '还未选择rule',
+            duration: 2000,
+            showClose: true,
+            type: 'warning'
+          });
+          return;
         }
         xh.currentRuleRowSelected = this.currentRuleRowSelected;
         xh.currentMetaRowSelected = this.currentMetaRowSelected;
         this.setDialogVisible(false);
-        console.log('xh.currentRuleRowSelected', xh.currentRuleRowSelected);
-        console.log('xh.currentMetaRowSelected', xh.currentMetaRowSelected);
       }
     },
     template: `
       <div class="c-el-table-wrapper">
         <el-dialog title="" :visible.sync="dialogTableVisible">
-          <div class="c-large-font">Rules</div>
-          <el-table :data="ruleData" :max-height="400" @current-change="handleRuleChange" highlight-current-row :show-overflow-tooltip="true">
-            <el-table-column property="pattern" label="正则模式"></el-table-column>
+          <div class="c-large-font" style="margin-bottom: 12px;">
+            Rules
+            <span @click="resetRuleSelected" class="c-reset-btn">重置选择</span>
+          </div>
+          <el-table ref="rulesTable" :data="ruleData" :max-height="400" @current-change="handleRuleChange" highlight-current-row>
+            <el-table-column property="pattern" label="正则模式" width="440" show-overflow-tooltip></el-table-column>
             <el-table-column property="pattern_type" label="模式类型"></el-table-column>
             <el-table-column property="description" label="说明"></el-table-column>
           </el-table>
-          <div class="c-large-font" style="margin-top: 36px;">Metas</div>
-          <el-table :data="metaData" :max-height="400" @current-change="handleMetaChange" highlight-current-row :show-overflow-tooltip="true">
+          <div class="c-large-font" style="margin-top: 36px; margin-bottom: 12px;">
+            Metas
+            <span @click="resetMetaSelected" class="c-reset-btn">重置选择</span>
+          </div>
+          <el-table ref="metasTable" :data="metaData" :max-height="400" @current-change="handleMetaChange" highlight-current-row>
             <el-table-column property="description" label="说明"></el-table-column>
-            <el-table-column property="content" label="内容">
+            <el-table-column property="content" label="内容" show-overflow-tooltip>
               <template slot-scope="scope">
                 <div>{{ transformMetaContent(scope) }}</div>
               </template>
             </el-table-column>
           </el-table>
           <span slot="footer" class="dialog-footer">
-            <el-button type="danger" @click="setDialogVisible(false)">取消</el-button>
+            <el-button @click="setDialogVisible(false)">关闭窗口</el-button>
+            <el-button type="danger" @click="">取消选择</el-button>
             <el-button type="primary" @click="confirmSelected">确认选择</el-button>
           </span>
         </el-dialog>
@@ -1041,13 +1105,109 @@ xh.setRuleMetaTable = function () {
 // * 显示Rule的table容器
 xh.showRuleMetaTableWrapper = function () {
   xh.elRuleMetaTableIns.setDialogVisible(true);
-  // document.querySelector('#elRuleMetaTableWrapper').style.display = 'block';
 }
 
 // * 隐藏Rule的table容器
 xh.hideRuleMetaTableWrapper = function () {
   xh.elRuleMetaTableIns.setDialogVisible(false);
-  // document.querySelector('#elRuleMetaTableWrapper').style.display = 'none';
+}
+
+// * 创建修改数据的table容器
+xh.createMdDataTable = function () {
+  xh.elMdDataTableIns = new Vue({
+    data: {
+      submitContent: [],
+      dialogTableVisible: true
+    },
+    methods: {
+      setDialogVisible (param) {
+        this.dialogTableVisible = param;
+      },
+      setTableContent (data) {
+        this.submitContent = [];
+        let content = Object.entries(xh.submitCol.content);
+        for (let itemArr of content) {
+          this.submitContent.push({
+            key: itemArr[0],
+            ...itemArr[1]
+          });
+        }
+      },
+      deleteDataRow (key) {
+        // for (let item of object.entries(this.submitContent)) {
+        //   if (path === item[1].path) {
+        //     delete xh.areaCreated[item[0]];
+        //     console.log('xh.areaCreated', xh.areaCreated);
+        //   }
+        // }
+        delete xh.areaCreated[key];
+        console.log('xh.areaCreated', xh.areaCreated);
+        xh.setSubmitCol();
+        this.setTableContent();
+      }
+    },
+    computed: {
+      tableContentTransformGetter () {
+        return Object.values(this.submitContent);
+      }
+    },
+    mounted () {
+    },
+    template: `
+      <div class="c-md-data-table-wrapper">
+        <el-dialog title="" :visible.sync="dialogTableVisible">
+          <el-table ref="mdDataTable" :data="submitContent" :max-height="800" highlight-current-row>
+            <el-table-column width="120" label="删除">
+              <template slot-scope="scope">
+                <el-button type="text" @click="deleteDataRow(scope.row.key)">删除</el-button>
+              </template>
+            </el-table-column>
+            <el-table-column property="key" label="key"></el-table-column>
+            <el-table-column property="path" label="path" width="280" show-overflow-tooltip></el-table-column>
+            <el-table-column property="type" label="type"></el-table-column>
+            <el-table-column property="schema" label="schema">
+              <template slot-scope="scope">
+                <div>
+                  {{ JSON.stringify(scope.row.schema, null, 2) }}
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+          <span slot="footer" class="dialog-footer">
+            <el-button @click="setDialogVisible(false)">关闭窗口</el-button>
+          </span>
+        </el-dialog>
+      </div>
+    `
+  })
+}
+
+// * 设置MdData的table
+xh.setMdDataTable = function () {
+  if (!document.querySelector('.c-md-data-table-wrapper')) {
+    xh.elMdDataTableWrapper = document.createElement('div');
+    xh.elMdDataTableWrapper.id = "elMdDataTableWrapper";
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(xh.elMdDataTableWrapper);
+    xh.createMdDataTable();
+    xh.elMdDataTableIns.setTableContent();
+    xh.elMdDataTableIns.$mount('#elMdDataTableWrapper');
+  } else {
+    xh.elMdDataTableIns.setTableContent();
+    xh.showMdDataTableWrapper();
+  }
+}
+
+// * 显示Rule的table容器
+xh.showMdDataTableWrapper = function () {
+  xh.elMdDataTableIns.setDialogVisible(true);
+}
+
+// * 隐藏Rule的table容器
+xh.hideMdDataTableWrapper = function () {
+  xh.elMdDataTableIns.setDialogVisible(false);
 }
 
 // // * 创建选择meta的table
@@ -1188,14 +1348,13 @@ xh.createInputBoxIns = function () {
         this.presetMeta = '';
       },
       setRadioAreaDefault () {
-        let areaCreatedArr = Object.keys(this.areaCreated);
-        if (areaCreatedArr.length > 0) {
-          this.radioArea = 'selectArea';
-          // this.areaSelected = this.areaCreated[areaCreatedArr[0]].title;
-        } else {
-          this.radioArea = 'newArea';
-          // this.areaSelected = '';
-        }
+        // let areaCreatedArr = Object.keys(this.areaCreated);
+        // if (areaCreatedArr.length > 0) {
+        //   this.radioArea = 'selectArea';
+        // } else {
+        //   this.radioArea = 'newArea';
+        // }
+        this.radioArea = 'newArea';
         this.areaSelected = '';
       },
       cancelInputBox (event) {
@@ -1203,13 +1362,15 @@ xh.createInputBoxIns = function () {
         xh.cancelInputBox();
       },
       confirmSavePath () {
-        let title = '';
-        if (this.radioArea === xh.NEW_AREA) {
-          title = this.customTitle
-        } else if (this.radioArea === xh.SELECT_AREA && this.IATitleType === 'IATitlePreset') {
-          title = this.areaTitleSelected;
-        } else {
-          title = this.customAreaTitle;
+        // * 判断meta是否合法，如果空则提示
+        if (!this.presetMeta) {
+          xh.setElMessage({
+            showClose: true,
+            duration: 2000,
+            message: '类型不能为空',
+            type: 'error'
+          });
+          return;
         }
         xh.confirmSavePath({
           meta: this.presetMeta,
@@ -1274,7 +1435,7 @@ xh.createInputBoxIns = function () {
       <div id="c-input-box-ins-wrapper">
         <div id="c-input-box">
           <div class="select-input--wrapper">
-            <div id="identificationArea" class="c-identification-area-select" v-show="Object.keys(this.areaCreated).length > 0">
+            <div id="identificationArea" class="c-identification-area-select" v-show="false">
               <div class="c-identificationAreaSelect-wrapper">
                 <input type="radio" id="identificationAreaSelect" value="selectArea" v-model="radioArea"><span>选择识别区域</span>
               </div>
@@ -1301,7 +1462,7 @@ xh.createInputBoxIns = function () {
                 <input type="radio" id="identificationAreaCreate" value="newArea" v-model="radioArea"><span>新建识别区域</span>
               </div>
               <div class="c-block" v-show="radioArea === 'newArea'">
-                <div class="c-block c-talign" v-show="Object.keys(this.areaCreated).length > 0">
+                <div class="c-block c-talign" v-show="false">
                   <input type="checkbox" value="areaNewLimitSetter" id="areaNewLimitSetter" v-model="areaNewLimitSetter" style="margin-left: 20px;"/>
                   <span>设定所属区域：</span>
                   <select name="areaNewLimit" id="areaNewLimit" v-model="areaNewLimit" class="inline-b mgt-middle" style="margin-left: 20px;">
@@ -1664,6 +1825,60 @@ xh.setElMessage = function (param) {
   });
 }
 
+// * 创建element-yi messageBox的方法
+xh.setElMessageBox = function (param) {
+  xh.elMsgBoxIns = Vue.prototype.$msgbox({
+    title: '提示',
+    message: param.message,
+    showCancelButton: true,
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    beforeClose: (action, instance, done) => {
+      if (action === 'confirm') {
+        instance.confirmButtonLoading = true;
+        param.callback();
+        instance.confirmButtonLoading = false;
+        done();
+      } else {
+        done();
+      }
+    }
+  })
+}
+
+// * ieClassNameList
+xh.specClassNameList = [
+  'c-hint--wrapper',
+  'c-hint-symbol',
+  'c-input-box-ins-symbol',
+  'c-preview-symbo',
+  'c-el-table-wrapper',
+  'el-message',
+  'c-md-data-table-wrappe'
+];
+
+// * 包含白名单中的类名
+xh.IsIncludeClassNameInSpec = function (className) {
+  for (let cn of xh.specClassNameList) {
+    if (className.indexOf(cn) !== -1) {
+      return true;
+    }
+  }
+  return false;
+  // return xh.specClassNameList.indexOf(className) !== -1;
+}
+
+// * 不包含白名单中的类名
+xh.IsEncludeClassNameInSpec = function (className) {
+  for (let cn of xh.specClassNameList) {
+    if (className.indexOf(cn) !== -1) {
+      return false;
+    }
+  }
+  return true;
+  // return xh.specClassNameList.indexOf(className) === -1;
+}
+
 ////////////////////////////////////////////////////////////
 // xh.Bar class definition
 
@@ -1880,11 +2095,13 @@ xh.Bar.prototype.setCurrElExcludeList = function (node) {
   if (
     xh.tagNameExcludeList.indexOf(tagName.toLowerCase()) === -1
     && !xh.isIgnorable(node)
-    && className.indexOf('c-hint-symbol') === -1
-    && className.indexOf('c-input-box-ins-symbol') === -1
-    && className.indexOf('c-preview-symbol') === -1
-    && className.indexOf('c-el-table-wrapper') === -1
-    && className.indexOf('el-message') === -1
+    && !xh.IsIncludeClassNameInSpec(className)
+    // && className.indexOf('c-hint-symbol') === -1
+    // && className.indexOf('c-input-box-ins-symbol') === -1
+    // && className.indexOf('c-preview-symbol') === -1
+    // && className.indexOf('c-el-table-wrapper') === -1
+    // && className.indexOf('el-message') === -1
+    // && className.indexOf('c-md-data-table-wrapper') === -1
   ) {
     this.currEl_ = node;
     return true;
@@ -1946,6 +2163,8 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     this.resetCssRuleCol();
   } else if (request.type === 'openTableDialog') {
     this.openTableDialog();
+  } else if (request.type === 'openModifyDataDialog') {
+    this.openModifyDataDialog();
   }
 };
 
@@ -1979,7 +2198,28 @@ xh.Bar.prototype.openTableDialog = function () {
   } else {
     xh.setElMessage({
       type: 'error',
-      message: '请先开启功能一次',
+      message: '请先开启功能',
+      duration: 2000,
+      showClose: true
+    });
+  }
+}
+
+// * 打开修改数据的table dialog
+xh.Bar.prototype.openModifyDataDialog = function () {
+  if (xh.IS_OPEN && Object.keys(xh.areaCreated).length > 0) {
+    xh.mdDataRequest();
+  } else if (!xh.IS_OPEN) {
+    xh.setElMessage({
+      type: 'error',
+      message: '请先开启功能',
+      duration: 2000,
+      showClose: true
+    });
+  } else if (Object.keys(xh.areaCreated).length === 0) {
+    xh.setElMessage({
+      type: 'warning',
+      message: '暂无数据，请先添加数据',
       duration: 2000,
       showClose: true
     });
@@ -2108,7 +2348,6 @@ xh.Bar.prototype.keyDown_ = function(e) {
 
 xh.Bar.prototype.mouseClick_ = function (e) {
   console.log('e', e);
-  // console.log('location', window.location);  
   let originS = window.location.origin;
   let flagStop = false;
   let domPath = e.path;
@@ -2129,9 +2368,11 @@ xh.Bar.prototype.mouseClick_ = function (e) {
       // * className中有c-hint--wrappe
       domPath[i]
       && domPath[i].className
-      && (domPath[i].className.indexOf('c-hint--wrapper') !== -1
-      || domPath[i].className.indexOf('el-message') !== -1
-      || domPath[i].className.indexOf('c-el-table-wrapper') !== -1)
+      && xh.IsIncludeClassNameInSpec(domPath[i].className)
+      // (domPath[i].className.indexOf('c-hint--wrapper') !== -1
+      // || domPath[i].className.indexOf('el-message') !== -1
+      // || domPath[i].className.indexOf('c-el-table-wrapper') !== -1
+      // || domPath[i].className.indexOf('c-md-data-table-wrapper') !== -1)
     ) {
       e.stopPropagation();
       flagStop = true;

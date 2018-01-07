@@ -262,8 +262,12 @@ img.xh-highlight {
   color: #999 !important;
 }
 
-/* 帮助类 */
+/* element-ui table 样式调整 */
+.c-el-table-wrapper table, .c-md-data-table-wrapper table {
+  margin: 0;
+}
 
+/* 帮助类 */
 .c-flex-row {
   display: flex;
   flex-direction: row;
@@ -276,6 +280,13 @@ img.xh-highlight {
 }
 .c-large-font {
   font-size: 24px;
+}
+.c-reset-btn {
+  line-height: 24px;
+  float: right;
+  font-size: 14px;
+  cursor: pointer;
+  color: rgb(247, 137, 137);
 }
 #c-input-box .mgt-middle {
   margin-top: 12px !important;

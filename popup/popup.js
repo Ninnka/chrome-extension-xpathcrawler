@@ -14,7 +14,8 @@ const typeList = {
   cancelAll: 'cancelAll',
   toggleBar: 'toggleBar',
   getStatus: 'getStatus',
-  openTableDialog: 'openTableDialog'
+  openTableDialog: 'openTableDialog',
+  openModifyDataDialog: 'openModifyDataDialog'
 }
 
 // 监听是否开启或关闭状态
@@ -76,8 +77,14 @@ function switchStatus() {
   sendMessage_(typeList.toggleBar);
 }
 
+// * 打开选择规则的对话框
 function openTableDialog () {
   sendMessage_(typeList.openTableDialog);
+}
+
+// *打开修改数据的对话框
+function openModifyDataDialog() {
+  sendMessage_(typeList.openModifyDataDialog);
 }
 
 // 为按钮添加点击事件
@@ -86,4 +93,5 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cancel').addEventListener('click', cancel);
   document.getElementById('status').addEventListener('click', switchStatus);
   document.querySelector('#selectRule').addEventListener('click', openTableDialog);
+  document.querySelector('#modifyData').addEventListener('click', openModifyDataDialog);
 });
