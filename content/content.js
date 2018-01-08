@@ -1134,12 +1134,6 @@ xh.createMdDataTable = function () {
         }
       },
       deleteDataRow (key) {
-        // for (let item of object.entries(this.submitContent)) {
-        //   if (path === item[1].path) {
-        //     delete xh.areaCreated[item[0]];
-        //     console.log('xh.areaCreated', xh.areaCreated);
-        //   }
-        // }
         delete xh.areaCreated[key];
         console.log('xh.areaCreated', xh.areaCreated);
         xh.setSubmitCol();
@@ -1167,7 +1161,7 @@ xh.createMdDataTable = function () {
             <el-table-column property="type" label="type"></el-table-column>
             <el-table-column property="schema" label="schema">
               <template slot-scope="scope">
-                <div>
+                <div style="white-space: pre-wrap;">
                   {{ JSON.stringify(scope.row.schema, null, 2) }}
                 </div>
               </template>
@@ -1289,19 +1283,6 @@ xh.createInputBoxIns = function () {
   xh.inputBoxIns = new Vue({
     data: {
       areaCreated: xh.areaCreated,
-      // typePresets: [{
-      //   name: '单块内容',
-      //   value: 'object'
-      // }, {
-      //   name: '列表',
-      //   value: 'array'
-      // }, {
-      //   name: '字符串',
-      //   value: 'string'
-      // }, {
-      //   name: '数值',
-      //   value: 'number'
-      // }],
       titlePresets: ['标题1', '标题2', '标题3', '标题4'],
       presetMeta: '',
       customTitle: '',
@@ -1528,100 +1509,6 @@ xh.fixingPopup = function (toggle, param) {
       xh.inputBoxIns.resetDataStatus();
       xh.openCInputBox();
     }
-    
-    // let popupDomS = 
-    //   `
-    //     <div id="c-input-box">
-    //       <div class="select-input--wrapper">
-    //         <div id="identificationArea" class="c-identification-area">
-              
-    //         </div>
-    //         <div id="identificationAreaCreate" class="c-identification-area-create">
-    //           <div class="c-identificationAreaSelect-wrapper">
-    //             <input type="radio" id="identificationAreaSelect" checked>新建识别区域</input>
-    //           </div>
-    //           <input type="text" id="popupOtherInput" placeholder="请输入自定义的标题">
-    //           <select name="symbolType" id="symbomSelect">
-    //             <option value=""></option>
-    //             <option value="array">列表</option>
-    //             <option value="object">单块内容</option>
-    //           </select>
-    //         </div>
-    //         <div class="c-buttons">
-    //           <div id="popupButtonCancel">取消</div>
-    //           <div id="popupButtonConfirm">确定</div>
-    //         </div>
-    //       </div>
-    //     </div>
-    //   `;
-      // <div class="c-textarea--wrapper wrapper--textarea-xpath">
-      //         <textarea id="popupTextareaXpath" readonly="true"></textarea>
-      //       </div>
-      //       <div class="c-textarea--wrapper wrapper--textarea-result">
-      //         <textarea id="popupTextareaResult" readonly="true"></textarea>
-      //       </div>
-    // xh.divTmp.innerHTML = popupDomS;
-
-    // xh.openCInputBox();
-
-    // * 保存popup的select和添加事件
-    // xh.popupSelect = xh.divTmp.querySelector('#symbomSelect');
-    // xh.popupSelect && xh.popupSelect.addEventListener('change', xh.popupSelectChange);
-
-    // * 保存其他的输入框和添加事件
-    // xh.popupOtherInput = xh.divTmp.querySelector('#popupOtherInput');
-    // xh.popupOtherInput && xh.popupOtherInput.addEventListener('change', xh.popupOtherInputChange)
-
-    // * 保存文本框(废弃)
-    // xh.popupTextareaXpath = xh.divTmp.querySelector('#popupTextareaXpath');
-    // xh.popupTextareaResult = xh.divTmp.querySelector('#popupTextareaResult');
-
-    // xh.popupTextareaXpath.value = toggle ? xpath : '';
-    // xh.popupTextareaResult.value = toggle ? resultStr : '';
-
-    // * 保存按钮
-    // xh.popupButtonCancel = xh.divTmp.querySelector('#popupButtonCancel')
-    // xh.popupButtonConfirm = xh.divTmp.querySelector('#popupButtonConfirm')
-
-    // xh.popupButtonCancel.addEventListener('click', xh.cancelInputBox);
-    // xh.popupButtonConfirm.addEventListener('click', () => {
-      // let cssSeletorOptimization = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
-      // TODOS:判断类型为string还是number(调用位置有误)
-      // let tmpCssDom = document.querySelector(cssSeletorOp);
-      // let tmpCssDomChilds = null;
-      // if (xh.currentSeletorType === xh.TYPE_STRING && tmpCssDom) {
-      //   tmpCssDomChilds = tmpCssDom.childNodes;
-      //   console.log('tmpCssDomChilds', tmpCssDomChilds);
-      //   if (tmpCssDomChilds.length === 1 && tmpCssDomChilds[0].nodeName === '#text' && !isNaN(Number(tmpCssDomChilds[0].nodeValue))) {
-      //     console.log('set number');
-      //     xh.currentSeletorType = xh.TYPE_NUMBER;
-      //   }
-      // }
-      // if (xh.currentSeletorType === xh.TYPE_STRING) {
-      //   if (!isNaN(Number(resultStr))) {
-      //     xh.currentSeletorType = xh.TYPE_NUMBER;
-      //   }
-      // }
-
-      // * 判断是否为array
-      // let cssSeletorDom = document.querySelectorAll(cssSeletorOptimization);
-      // if (cssSeletorDom && cssSeletorDom.length > 1) {
-      //   xh.currentSeletorType = xh.TYPE_ARRAY;
-      // }
-
-      // let title = xh.popupOtherInput.value;
-      // * 确认
-      // xh.confirmSavePath({
-      //   title: title,
-      //   cssSelector: cssSeletorOptimization,
-      //   type: xh.currentSeletorType
-      // });
-    // });
-    
-    // if (xh.docuBody === null) {
-    //   xh.docuBody = document.querySelector('body');
-    // }
-    // xh.docuBody.appendChild(xh.divTmp);
   }
 }
 
@@ -1747,19 +1634,46 @@ xh.evaluateQuery = function(query) {
 
 // * herf白名单列表
 xh.hrefWhiteListKeyWord = [
-  // 'docs',
-  // 'zh',
-  // 'cn'
+  'JavaScript'
 ];
 
 // * 自定义herf过滤
 xh.customHrefFilter = function (value) {
+  value = value.toLowerCase();
   for (let item of xh.hrefWhiteListKeyWord) {
-    if (value.toLowerCase().indexOf(item.toLowerCase()) !== -1) {
+    if (value.indexOf(item.toLowerCase()) !== -1) {
       return true;
     }
   }
   return false;
+}
+
+xh.hrefJumpControl = function (e) {
+  e.preventDefault();
+  let originS = window.location.origin;
+  let res = {
+    flagStop: false
+  }
+  let level = 3;
+  if (level <= 0) {
+    return res;
+  }
+  let currentNode = e.target;
+  for (; level > 0; level--) {
+    if (currentNode && currentNode.tagName === 'A' && xh.canJump(currentNode)) {
+      let urlT = currentNode.attributes.href.value;
+      let href = urlT;
+      if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
+        urlT = originS + href;
+      }
+      console.log('urlT', urlT);
+      xh.createNewTab(urlT);
+      res.flagStop = true;
+      return res;
+    }
+    currentNode = currentNode.parentNode ? currentNode.parentNode : null;
+  }
+  return res;
 }
 
 // * 判断是否允许跳转
@@ -1779,8 +1693,6 @@ xh.setNewTabForceOpenFunc = function (url) {
 
   let separateHash = [];
   let separateParam = [];
-  // let hashPosi = urlT.indexOf('#');
-  // let paramPosi = urlT.indexOf('?');
 
   separateHash = url.split('#');
   if (separateHash.length > 1) {
@@ -2273,14 +2185,6 @@ xh.Bar.prototype.keyDownExtend_ = function (event) {
       } else {
         selectChangeText = '后面没有兄弟节点了';
       }
-      // let nextSibling = xh.currElIsSelected && xh.currElIsSelected.nextSibling ? xh.currElIsSelected.nextSibling : null;
-      // if (nextSibling) {
-      //   // this.currEl_ = nextSibling;
-      //   this.setCurrElExcludeList(nextSibling);
-      //   selectChangeStatus = true;
-      // } else {
-      //   selectChangeText = '后面没有兄弟节点了';
-      // }
     } else if (event.keyCode === xh.X_KEYCODE && shiftKey && altKey && !ctrlKey) {
       console.log('快速同级向上选择');
       let res = this.setCurrElPre();
@@ -2289,14 +2193,6 @@ xh.Bar.prototype.keyDownExtend_ = function (event) {
       } else {
         selectChangeText = '前面没有兄弟节点了';
       }
-      // let previousSibling = xh.currElIsSelected && xh.currElIsSelected.previousSibling ? xh.currElIsSelected.previousSibling : null;
-      // if (previousSibling) {
-      //   // this.currEl_ = previousSibling;
-      //   this.setCurrElExcludeList(previousSibling);
-      //   selectChangeStatus = true;
-      // } else {
-      //   selectChangeText = '前面没有兄弟节点了';
-      // }
     }
     if (selectChangeStatus) {
       // * 设置已选中状态
@@ -2317,7 +2213,7 @@ xh.Bar.prototype.keyDownExtend_ = function (event) {
   }
 }
 
-// * 旧的键盘监听方法（已经废弃）
+// ! 旧的键盘监听方法（已经废弃，没有用了，不用管，以后删）
 xh.Bar.prototype.keyDown_ = function(e) {
   var ctrlKey = e.ctrlKey || e.metaKey;
   var shiftKey = e.shiftKey;
@@ -2348,7 +2244,6 @@ xh.Bar.prototype.keyDown_ = function(e) {
 
 xh.Bar.prototype.mouseClick_ = function (e) {
   console.log('e', e);
-  let originS = window.location.origin;
   let flagStop = false;
   let domPath = e.path;
   let domPathL = domPath.length;
@@ -2384,43 +2279,45 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     this.currEl_ = e.toElement;
   }
   // * 阻止a标签默认事件（目前层级设为3）
-  if (e.target.tagName === 'A') {
-    e.preventDefault();
-    if (xh.canJump(e.target)) {
-      let urlT = e.target.attributes.href.value;
-      let href = urlT;
-      if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
-        urlT = originS + href;
-      }
-      console.log('urlT', urlT);
-      flagStop = true;
-      xh.createNewTab(urlT);
-    }
-  } else if (xh.checkParentHref(e)) {
-    e.preventDefault();
-    if (e.target.parentNode && xh.canJump(e.target.parentNode)) {
-      let urlT = e.target.parentNode.attributes.href.value;
-      let href = urlT;
-      if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
-        urlT = originS + href;
-      }
-      console.log('urlT', urlT);
-      flagStop = true;
-      xh.createNewTab(urlT);
-    }
-  } else if (xh.checkParentHref(e.target.parentNode)) {
-    e.preventDefault();
-    if (e.target.parentNode && e.target.parentNode.parentNode && xh.canJump(e.target.parentNode.parentNode)) {
-      let urlT = e.target.parentNode.parentNode.attributes.href.value;
-      let href = urlT;
-      if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
-        urlT = originS + href;
-      }
-      console.log('urlT', urlT);
-      flagStop = true;
-      xh.createNewTab(urlT);
-    }
-  }
+  let resHrefJumpControl = xh.hrefJumpControl(e);
+  flagStop = resHrefJumpControl.flagStop ? resHrefJumpControl.flagStop : flagStop;
+  // if (e.target.tagName === 'A') {
+  //   e.preventDefault();
+  //   if (xh.canJump(e.target)) {
+  //     let urlT = e.target.attributes.href.value;
+  //     let href = urlT;
+  //     if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
+  //       urlT = originS + href;
+  //     }
+  //     console.log('urlT', urlT);
+  //     flagStop = true;
+  //     xh.createNewTab(urlT);
+  //   }
+  // } else if (xh.checkParentHref(e)) {
+  //   e.preventDefault();
+  //   if (e.target.parentNode && xh.canJump(e.target.parentNode)) {
+  //     let urlT = e.target.parentNode.attributes.href.value;
+  //     let href = urlT;
+  //     if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
+  //       urlT = originS + href;
+  //     }
+  //     console.log('urlT', urlT);
+  //     flagStop = true;
+  //     xh.createNewTab(urlT);
+  //   }
+  // } else if (xh.checkParentHref(e.target.parentNode)) {
+  //   e.preventDefault();
+  //   if (e.target.parentNode && e.target.parentNode.parentNode && xh.canJump(e.target.parentNode.parentNode)) {
+  //     let urlT = e.target.parentNode.parentNode.attributes.href.value;
+  //     let href = urlT;
+  //     if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
+  //       urlT = originS + href;
+  //     }
+  //     console.log('urlT', urlT);
+  //     flagStop = true;
+  //     xh.createNewTab(urlT);
+  //   }
+  // }
   // * 如果已经获取到元素并且没有被阻止冒泡则显示弹框
   if (
     this.currEl_

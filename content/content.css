@@ -266,6 +266,16 @@ img.xh-highlight {
 .c-el-table-wrapper table, .c-md-data-table-wrapper table {
   margin: 0;
 }
+.c-el-table-wrapper .el-table td {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.c-el-table-wrapper .el-table th {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
 
 /* 帮助类 */
 .c-flex-row {
