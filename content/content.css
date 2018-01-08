@@ -78,15 +78,18 @@ img.xh-highlight {
   width: 400px;
   min-height: 400px;
   display: flex;
+  flex-direction: column;
   z-index: 999;
   text-align: center;
   box-sizing: border-box;
-  padding: 24px 12px;
+  padding: 0 0 24px;
   box-shadow: 0px 1px 5px 0 #bbb;
   background-color: #FCFCFC;
-  border-radius: 10px;
+  /* border-radius: 10px; */
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
   align-items: center;
-  transform: translateZ(3px) translateX(-50%) translateY(-50%);
+  /* transform: translateZ(3px) translateX(-50%) translateY(-50%); */
   left: 50%;
   top: 50%;
 }
@@ -95,6 +98,7 @@ img.xh-highlight {
 }
 #c-input-box .select-input--wrapper {
   width: 100%;
+  padding: 0 12px;
 }
 #c-input-box select {
   width: 80% !important;
@@ -141,6 +145,22 @@ img.xh-highlight {
   margin-bottom: 20px !important;
   box-shadow: rgb(187, 187, 187) 0px 1px 0px 0px;
   overflow: hidden !important;
+}
+#c-input-box .c-move-area {
+  color: #898989;
+  height: 60px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: 1px dashed #898989 !important;
+  text-align: center !important;
+  line-height: 60px !important;
+  margin-bottom: 24px;
+  flex-grow: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  transition: 0;
 }
 .c-buttons div {
   border-radius: 4px;

@@ -1278,10 +1278,51 @@ xh.cancelInputBox = function () {
   xh.currElIsSelecting = false;
 }
 
+// * 绑定弹框中的鼠标移动事件
+xh.bindInputBoxTouchEvent = function () {
+  let moveArea = document.querySelector('#c-move-area');
+  let mouseOffsetX = 0;
+  let mouseOffsetY = 0;
+  console.log('moveArea', moveArea);
+  if (!moveArea) {
+    return;
+  }
+  moveArea.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    mouseOffsetX = e.offsetX;
+    mouseOffsetY = e.offsetY;
+    xh.inputBoxIns.isClickMoveArea = true;
+  });
+  document.addEventListener('mousemove', (e) => {
+    e.preventDefault();
+    if (xh.inputBoxIns.isClickMoveArea) {
+      xh.inputBoxIns.posiLeft = e.clientX - mouseOffsetX;
+      xh.inputBoxIns.posiTop = e.clientY - mouseOffsetY;
+      // console.log('xh.inputBoxIns.posiLeft', xh.inputBoxIns.posiLeft);
+      // console.log('xh.inputBoxIns.posiTop', xh.inputBoxIns.posiTop);
+      xh.inputBoxIns.hasMove = true;
+    }
+  });
+  document.addEventListener('mouseup', (e) => {
+    e.preventDefault();
+    xh.inputBoxIns.isClickMoveArea = false;
+  });
+}
+
 // * 创建弹框实例（vue版本）
 xh.createInputBoxIns = function () {
   xh.inputBoxIns = new Vue({
     data: {
+      posiStyleOrigin: {
+        transform: 'translateZ(3px) translateX(-50%) translateY(-50%)'
+      },
+      posiStyleChange: {
+        transform: 'translate(0px, 0px)'
+      },
+      posiTop: 0,
+      postLeft: 0,
+      hasMove: false,
+      isClickMoveArea: false,
       areaCreated: xh.areaCreated,
       titlePresets: ['标题1', '标题2', '标题3', '标题4'],
       presetMeta: '',
@@ -1297,10 +1338,13 @@ xh.createInputBoxIns = function () {
       areaNewLimit: '',
       areaNewLimitSetter: '',
       IATitleType: 'IATitlePreset',
-      levelLimit: xh.LEVEL_LIMIT
+      levelLimit: xh.LEVEL_LIMIT,
+      currentRuleMeta: []
     },
     methods: {
       resetDataStatus () {
+        // * 重新构造一个选项
+        this.setCurrentRuleMeta();
         this.areaCreated = xh.areaCreated;
         this.cssSeletorOptimizationRes = xhBarInstance.queryCssSelector.trim();
         this.cssSeletorStrictOptimizationRes = xhBarInstance.queryCssSelectorStrict.trim();
@@ -1325,7 +1369,6 @@ xh.createInputBoxIns = function () {
         }
       },
       setpresetMetaDefault () {
-        // this.presetMeta = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
         this.presetMeta = '';
       },
       setRadioAreaDefault () {
@@ -1375,7 +1418,6 @@ xh.createInputBoxIns = function () {
               let metas = this.getAreaIdenti(areaCreated[i].meta);
               let metasRename = metas.map((item, index, arr) => {
                 item = areaCreated[i].title + '/' + item;
-                // console.log('item after plus', item);
                 return item;
               });
               res = res.concat(metasRename);
@@ -1397,24 +1439,33 @@ xh.createInputBoxIns = function () {
         console.log('levelLimitChange', $event);
         xh.setLEVEL_LIMIT($event.target.value);
       },
-      getCurrentRuleMeta () {
+      setCurrentRuleMeta () {
+        if (this.isClickMoveArea) {
+          return;
+        }
         let arr = [];
         if (xh.currentMetaRowSelected && xh.currentMetaRowSelected.content) {
           arr = Object.keys(xh.currentMetaRowSelected.content);
         }
-        console.log('getCurrentRuleMeta arr', arr);
-        return arr;
+        this.currentRuleMeta = arr;
       }
     },
     computed: {
     },
     mounted () {
-      // this.presetMeta = this.typePresets && this.typePresets.length > 0 ? this.typePresets[0].value : '';
+      this.setCurrentRuleMeta();
       this.setpresetMetaDefault();
     },
     template: `
       <div id="c-input-box-ins-wrapper">
-        <div id="c-input-box">
+        <div id="c-input-box" :style="{
+          transform: hasMove ? 'translate(0px, 0px)' : 'translateZ(3px) translateX(-50%) translateY(-50%)',
+          top: hasMove ? posiTop + 'px' : '50%',
+          left: hasMove ? posiLeft + 'px' : '50%'
+        }">
+          <div id="c-move-area" class="c-move-area">
+            按住此区域可以拖动框框
+          </div>
           <div class="select-input--wrapper">
             <div id="identificationArea" class="c-identification-area-select" v-show="false">
               <div class="c-identificationAreaSelect-wrapper">
@@ -1453,7 +1504,7 @@ xh.createInputBoxIns = function () {
                 <div class="c-block c-talign">
                   <span class="middle-left">类型：</span>
                   <select name="symbolType" id="symbomSelect" v-model="presetMeta" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
-                    <option v-for="metas in getCurrentRuleMeta()" :key="metas" :value="metas">{{ metas }}</option>
+                    <option v-for="metas in currentRuleMeta" :key="metas" :value="metas">{{ metas }}</option>
                   </select>
                 </div>
               </div>
@@ -1483,7 +1534,6 @@ xh.fixingPopup = function (toggle, param) {
   let resultStr = param && param.resultStr ? param.resultStr : '';
   // * 保存优化过后的css规则到xh的作用域中
   xh.cssSeletorOptimizationRes = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
-  xh.cssSeletorOptimizationRes = (xh.cssRuleOptimization(xhBarInstance.queryCssSelector)).trim();
   // if (xh.docuBody) {
   //   xh.docuBody.removeChild(xh.divTmp);
   // }
@@ -1503,8 +1553,11 @@ xh.fixingPopup = function (toggle, param) {
     xh.divTmpWrapper.appendChild(xh.divTmp);
 
     if (!xh.inputBoxIns) {
+      // * 创建并挂载到DOM
       xh.createInputBoxIns();
       xh.inputBoxIns.$mount('#c-input-box-ins-outcontainer');
+      // * 绑定移动事件
+      xh.bindInputBoxTouchEvent();
     } else {
       xh.inputBoxIns.resetDataStatus();
       xh.openCInputBox();
@@ -1634,7 +1687,7 @@ xh.evaluateQuery = function(query) {
 
 // * herf白名单列表
 xh.hrefWhiteListKeyWord = [
-  'JavaScript'
+  // 'JavaScript'
 ];
 
 // * 自定义herf过滤
