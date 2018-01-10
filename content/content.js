@@ -93,6 +93,9 @@ xh.elMdDataTableIns = null; // * 修改数据的table容器实例
 xh.currentRuleRowSelected = null; // * 外部保存的选择行 
 xh.currentMetaRowSelected = null; // * 外部保存的选择行
 
+// * 保存当前全局选中的文本（暂时先放着）
+xh.textMouseSelected = '';
+
 /**
  * 测试数据：start
  */
@@ -428,12 +431,199 @@ xh.makeQueryForElement = function(el) {
     hasBreak = false; // * 重置元素直接父子关系的状态
     el = el.parentNode;
   }
+
+  // * 判断是否使用了划选功能
+  let tmpSelection = window.getSelection();
+  console.log('tmpSelection', tmpSelection);
+  let tmpSelectionText = tmpSelection.toString();
+  console.log('tmpSelectionText', tmpSelectionText);
+  // * 如果使用了划选功能，并且划选的文本必须在同一tag内，否则不算划选
+  if (
+    tmpSelectionText
+    && tmpSelection.anchorNode.nodeValue !== tmpSelectionText
+    && tmpSelection.anchorNode.nodeValue.indexOf(tmpSelectionText) !== -1
+  ) {
+    // * 判断使用哪种方式生成
+    if (tmpSelection.anchorOffset === 0) {
+      // * 选中的是字符串开头
+
+      // * 使用后一个关键词关系
+      query = xh.xpathSpecStartPart({
+        query,
+        tmpSelection,
+        tmpSelectionText
+      });
+    } else if (tmpSelection.anchorNode.length === tmpSelection.anchorOffset + tmpSelectionText.length) {
+      // * 选中的是字符串结尾
+
+      // * 使用前一个关键词关系
+      query = xh.xpathSpecEndPart({
+        query,
+        tmpSelection,
+        tmpSelectionText
+      });
+    } else if (tmpSelection.anchorNode.length !== tmpSelection.anchorOffset + tmpSelectionText.length) {
+      // TODOS
+      // * 需要判断前后的关键词
+      // * 先用after来分割
+      query = xh.xpathSpecEndPart({
+        query,
+        tmpSelection,
+        tmpSelectionText
+      });
+      // * 再用before来分割
+      query = xh.xpathSpecStartPart({
+        query,
+        tmpSelection,
+        tmpSelectionText
+      });
+    }
+  }
+
+  // * 返回包含严格模式的xpath，最近模糊模式的css-selector，严格模式的css-selector
   return {
     query,
     queryCss: queryCss.trim(),
     queryCssStrict: queryCssStrict.trim()
   };
 };
+
+// * xpath 使用：根据前后的关键词来生成xpath
+xh.xpathSpecKeyWordSub = function (param) {
+  let tmpXpath = `substring-${param.type}(${param.query}, '${param.key}')`;
+  return tmpXpath;
+}
+
+// * xpath 使用：划选为开头的处理部分
+xh.xpathSpecStartPart = function (param) {
+  // * 连接性字符的正则
+  const specLetterReg = /[-|:|'|"|——|：|’|“|,|，|.|。|;|；|)|）|\]|】|}|>|》]/g;
+  let {
+    query,
+    tmpSelection,
+    tmpSelectionText
+  } = param;
+  let flagStop = false;
+  let shouldTrim = false;
+  let startInx = tmpSelection.anchorOffset + tmpSelectionText.length;
+  let step = 1;
+  let letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
+  while (true) {
+    let specialCharactersReg = /([\s,，\.。]?)([^\s]+)([\s,，\.。]?)/g;
+    // console.log('letterAfterSelectionText', letterAfterSelectionText);
+    let regRes = specialCharactersReg.exec(letterAfterSelectionText);
+    // console.log('regRes:', regRes);
+    if (!regRes) {
+      step += 1;
+      if (tmpSelection.anchorNode.length >= startInx + step) {
+        letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
+        continue;
+      } else {
+        query = xh.xpathSpecKeyWordSub({
+          query,
+          key: letterAfterSelectionText,
+          type: 'before'
+        });
+        console.log('xpathSpecKeyWordSub start query:');
+        console.log(query);
+      }
+    }
+    if (specLetterReg.test(regRes[2]) || regRes[3]) {
+      shouldTrim = true;
+      flagStop = true;
+      break;
+    } else {
+      step += 1;
+      if (tmpSelection.anchorNode.length >= startInx + step) {
+        letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
+      } else {
+        shouldTrim = true;
+        if (regRes[1] === ' ') {
+          letterBeforeSelectionText = ' ';
+          shouldTrim = false;
+        }
+        flagStop = true;
+        break;
+      }
+    }
+  }
+  if (flagStop) {
+    query = xh.xpathSpecKeyWordSub({
+      query,
+      key: shouldTrim ? letterAfterSelectionText.trimRight() : letterAfterSelectionText,
+      type: 'before'
+    });
+    console.log('xpathSpecKeyWordSub start query:');
+    console.log(query);
+  }
+  return query;
+}
+
+// * xpath 使用：划选为结尾的处理部分
+xh.xpathSpecEndPart = function (param) {
+  // * 连接性字符的正则
+  const specLetterReg = /[-|:|'|"|——|：|’|“|,|，|.|。|;|；|(|（|\[|【|{|<|《]/g;
+  let {
+    query,
+    tmpSelection,
+    tmpSelectionText
+  } = param;
+  let flagStop = false;
+  let shouldTrim = false;
+  let endInx = tmpSelection.anchorOffset;
+  let step = 1;
+  let letterBeforeSelectionText = tmpSelection.anchorNode.nodeValue.substring(endInx - step, endInx);
+  while (true) {
+    let specialCharactersReg = /([\s,，\.。]?)([^\s]+)([\s,，\.。]?)/g;
+    // console.log('letterBeforeSelectionText', letterBeforeSelectionText);
+    let regRes = specialCharactersReg.exec(letterBeforeSelectionText);
+    // console.log('regRes:', regRes);
+    if (!regRes) {
+      step += 1;
+      if (endInx - step >= 0) {
+        letterBeforeSelectionText = tmpSelection.anchorNode.nodeValue.substring(endInx - step, endInx);
+        continue;
+      } else {
+        query = xh.xpathSpecKeyWordSub({
+          query,
+          key: letterBeforeSelectionText,
+          type: 'after'
+        });
+        console.log('xpathSpecKeyWordSub end query:');
+        console.log(query);
+        break;
+      }
+    }
+    if (regRes[1] || specLetterReg.test(regRes[2])) {
+      shouldTrim = true;
+      flagStop = true;
+      break;
+    } else {
+      step += 1;
+      if (endInx - step >= 0) {
+        letterBeforeSelectionText = tmpSelection.anchorNode.nodeValue.substring(endInx - step, endInx);
+      } else {
+        shouldTrim = true;
+        if (regRes[3] === ' ') {
+          letterBeforeSelectionText = ' ';
+          shouldTrim = false;
+        }
+        flagStop = true;
+        break;
+      }
+    }
+  }
+  if (flagStop) {
+    query = xh.xpathSpecKeyWordSub({
+      query,
+      key: shouldTrim ? letterBeforeSelectionText.trimLeft() : letterBeforeSelectionText,
+      type: 'after'
+    });
+    console.log('xpathSpecKeyWordSub end query:');
+    console.log(query);
+  }
+  return query;
+}
 
 xh.cssClassOptimization = function (className) {
   let classArr = className.split(' ');
@@ -488,7 +678,6 @@ xh.checkChildOrder = function (str) {
 
 // * 正则转换xpath为css规则
 xh.regDelimiter = function (ele) {
-  // console.log('regDelimiter ele', ele);
   let res = '';
   const reg = /(\[[^\[]+\])/g;
   let regRes = reg.exec(ele);
@@ -577,21 +766,13 @@ xh.addPrevent = (event) => {
   }
 }
 
-xh.preventHref = () => {
-  // let ahrefs = document.querySelectorAll('a');
-  // ahrefs.forEach(function (ele, index, arr) {
-  //   ele.addEventListener('click', xh.addPrevent);
-  // });
-  document.addEventListener('click', xh.addPrevent);
-}
+// xh.preventHref = () => {
+  // document.addEventListener('click', xh.addPrevent);
+// }
 
-xh.unPreventHref = () => {
-  // let ahrefs = document.querySelectorAll('a');
-  // ahrefs.forEach(function (ele, index, arr) {
-  //   ele.removeEventListener('click', xh.addPrevent);
-  // });
-  document.removeEventListener('click', xh.addPrevent);
-}
+// xh.unPreventHref = () => {
+  // document.removeEventListener('click', xh.addPrevent);
+// }
 
 xh.clearHighlights = function () {
   var els = document.querySelectorAll('.xh-highlight');
@@ -814,9 +995,9 @@ xh.setSubmitCol = function () {
       schema: metaCotentItem
     }
     if (metaCotentItem.type === 'array') {
-      xh.submitCol.content[item[0]].path = item[1].cssSelector;
+      xh.submitCol.content[item[0]].path = item[1].xpath;
     } else {
-      xh.submitCol.content[item[0]].path = item[1].cssSelectorStrict;
+      xh.submitCol.content[item[0]].path = item[1].xpath;
     }
     if (!xh.submitCol.meta[item[0]]) {
       xh.submitCol.meta[item[0]] = metaCotentItem;
@@ -855,13 +1036,14 @@ xh.setAreaCreateNested = function (area, data) {
 xh.confirmSavePath = function (data) {
   let isSuccess = false;
   console.log('confirm', data);
-  let { cssSelector, cssSelectorStrict, meta, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
+  let { cssSelector, cssSelectorStrict, xpath, meta, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
   // * 判断是否有选择的路径多级
   // * 通过action判断是新建识别区域还是选择识别区域
   if (action === xh.NEW_AREA && !areaNewLimitSetter) {
     let data = {
       cssSelector,
       cssSelectorStrict,
+      xpath,
       isAreaIdenti,
       meta
     };
@@ -874,6 +1056,7 @@ xh.confirmSavePath = function (data) {
     let data = {
       cssSelector,
       cssSelectorStrict,
+      xpath,
       isAreaIdenti,
       meta
     };
@@ -882,6 +1065,7 @@ xh.confirmSavePath = function (data) {
     let data = {
       cssSelector,
       cssSelectorStrict,
+      xpath,
       isAreaIdenti,
       meta
     };
@@ -1283,7 +1467,6 @@ xh.bindInputBoxTouchEvent = function () {
   let moveArea = document.querySelector('#c-move-area');
   let mouseOffsetX = 0;
   let mouseOffsetY = 0;
-  console.log('moveArea', moveArea);
   if (!moveArea) {
     return;
   }
@@ -1294,7 +1477,7 @@ xh.bindInputBoxTouchEvent = function () {
     xh.inputBoxIns.isClickMoveArea = true;
   });
   document.addEventListener('mousemove', (e) => {
-    e.preventDefault();
+    // e.preventDefault();
     if (xh.inputBoxIns.isClickMoveArea) {
       xh.inputBoxIns.posiLeft = e.clientX - mouseOffsetX;
       xh.inputBoxIns.posiTop = e.clientY - mouseOffsetY;
@@ -1339,7 +1522,8 @@ xh.createInputBoxIns = function () {
       areaNewLimitSetter: '',
       IATitleType: 'IATitlePreset',
       levelLimit: xh.LEVEL_LIMIT,
-      currentRuleMeta: []
+      currentRuleMeta: [],
+      xpath: xhBarInstance.query_
     },
     methods: {
       resetDataStatus () {
@@ -1356,6 +1540,7 @@ xh.createInputBoxIns = function () {
         this.IATitleType = 'IATitlePreset';
         this.areaNewLimitSetter = '';
         this.levelLimit = xh.LEVEL_LIMIT;
+        this.xpath = xhBarInstance.query_;
         this.setpresetMetaDefault();
         this.setAreaNewLimitDefault();
         this.setRadioAreaDefault();
@@ -1401,6 +1586,7 @@ xh.createInputBoxIns = function () {
           action: this.radioArea,
           cssSelector: this.cssSeletorOptimizationRes,
           cssSelectorStrict: this.cssSeletorStrictOptimizationRes,
+          xpath: this.xpath,
           areaSelected: this.areaSelected,
           isAreaIdenti: this.radioArea === xh.NEW_AREA,
           areaTitleSelected: this.areaTitleSelected,
@@ -1452,6 +1638,11 @@ xh.createInputBoxIns = function () {
     },
     computed: {
     },
+    watch: {
+      xpath (newValue, oldValue) {
+        xhBarInstance.query_ = newValue;
+      }
+    },
     mounted () {
       this.setCurrentRuleMeta();
       this.setpresetMetaDefault();
@@ -1467,6 +1658,9 @@ xh.createInputBoxIns = function () {
             按住此区域可以拖动框框
           </div>
           <div class="select-input--wrapper">
+            <div class="c-xpath-textarea-wrapper">
+              <textarea class="" name="" v-model="xpath"></textarea>
+            </div>
             <div id="identificationArea" class="c-identification-area-select" v-show="false">
               <div class="c-identificationAreaSelect-wrapper">
                 <input type="radio" id="identificationAreaSelect" value="selectArea" v-model="radioArea"><span>选择识别区域</span>
@@ -1501,8 +1695,8 @@ xh.createInputBoxIns = function () {
                     <option v-for="area in getAreaIdenti(this.areaCreated)" :key="area" :value="area">{{ area }}</option>
                   </select>
                 </div>
-                <div class="c-block c-talign">
-                  <span class="middle-left">类型：</span>
+                <div class="c-block-full c-talign">
+                  <span class="">类型：</span>
                   <select name="symbolType" id="symbomSelect" v-model="presetMeta" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
                     <option v-for="metas in currentRuleMeta" :key="metas" :value="metas">{{ metas }}</option>
                   </select>
@@ -1510,8 +1704,8 @@ xh.createInputBoxIns = function () {
               </div>
             </div>
             <div class="c-block c-talign">
-              <span class="middle-left">全局匹配层级：</span>
-              <input v-model="levelLimit" type="text" class="c-input-cl middle-left mgt-middle" @keydown="levelLimitKeydown" @change="levelLimitChange">
+              <span class="">全局匹配层级：</span>
+              <input v-model="levelLimit" type="text" class="c-input-cl mgt-middle" @keydown="levelLimitKeydown" @change="levelLimitChange">
             </div>
             <div class="c-buttons">
               <div id="popupButtonCancel" @click="cancelInputBox">取消</div>
@@ -1630,6 +1824,7 @@ xh.evaluateQuery = function(query) {
   try {
     xpathResult = document.evaluate(query, document.body, null,
                                     XPathResult.ANY_TYPE, null);
+    console.log('xpathResult', xpathResult);
   } catch (e) {
     str = '[INVALID XPATH EXPRESSION]';
     nodeCount = 0;
@@ -1647,6 +1842,7 @@ xh.evaluateQuery = function(query) {
     nodeCount = 1;
   } else if (xpathResult.resultType === XPathResult.STRING_TYPE) {
     str = xpathResult.stringValue;
+    console.log('XPathResult.STRING_TYPE str:', str);
     nodeCount = 1;
   } else if (xpathResult.resultType ===
              XPathResult.UNORDERED_NODE_ITERATOR_TYPE) {
@@ -1664,6 +1860,8 @@ xh.evaluateQuery = function(query) {
     if (nodeCount === 0) {
       str = '[NULL]';
     }
+    console.log('toHighlight', toHighlight);
+    console.log('nodeCount', nodeCount);
   } else {
     // Since we pass XPathResult.ANY_TYPE to document.evaluate(), we should
     // never get back a result type not handled above.
@@ -1979,7 +2177,6 @@ xh.Bar.prototype.showBar_ = function() {
           // TODOS
           /**
            * 保存获取的数据
-           * 显示数据在表格上（在popup额外提供一个入口）
            */
           // * 备开启功能前的准备
           this.prepareShowBar_();
@@ -2297,6 +2494,11 @@ xh.Bar.prototype.keyDown_ = function(e) {
 
 xh.Bar.prototype.mouseClick_ = function (e) {
   console.log('e', e);
+  // * 判断是否有选中的文本
+  let tmpTextSel = window.getSelection();
+  if (tmpTextSel) {
+    xh.textMouseSelected = tmpTextSel;
+  }
   let flagStop = false;
   let domPath = e.path;
   let domPathL = domPath.length;

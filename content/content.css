@@ -62,7 +62,11 @@ img.xh-highlight {
   width: 80% !important;
   margin-left: auto !important;
   margin-right: auto !important;
-  /* overflow: hidden; */
+}
+.c-block-full {
+  display: block;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 .c-talign {
   text-align: left !important;
@@ -83,11 +87,9 @@ img.xh-highlight {
   text-align: center;
   box-sizing: border-box;
   padding: 0 0 24px;
-  box-shadow: 0px 1px 5px 0 #bbb;
-  background-color: #FCFCFC;
-  /* border-radius: 10px; */
-  border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px;
+  box-shadow: 0px 1px 10px 0 #999;
+  background-color: #FFFFFF;
+  border-radius: 10px;
   align-items: center;
   /* transform: translateZ(3px) translateX(-50%) translateY(-50%); */
   left: 50%;
@@ -121,11 +123,14 @@ img.xh-highlight {
   border: none;
   width: 80% !important;
   margin: 0 auto 20px !important;
-  height: 60px !important;
+  height: auto !important;
   overflow-y: auto !important;
   box-sizing: border-box !important;
   box-shadow: 0px 1px 5px 0 #bbb;
   vertical-align: middle !important;
+}
+#c-input-box .c-xpath-textarea-wrapper textarea {
+  min-height: 120px;
 }
 #c-input-box .c-buttons {
   width: 80% !important;
@@ -295,6 +300,12 @@ img.xh-highlight {
   border-top: none;
   border-left: none;
   border-right: none;
+}
+.el-tooltip__popper {
+  max-width: 1000px !important;
+}
+.el-message {
+  z-index: 99999 !important;
 }
 
 /* 帮助类 */
