@@ -128,7 +128,10 @@ xh.presetData = {
 			},
 			"author": {
 				"type": "string"
-			}
+      },
+      "list": {
+        "type": "array"
+      }
 		}
 	}, {
 		"id": 2,
@@ -152,10 +155,8 @@ xh.presetData = {
 }
 
 /**
- * 测试时局：end
+ * 测试数据：end
  */
-
-// console.log('Message', Vue.prototype.$message);
 
 // * Xpath使用
 xh.elementsShareFamily = function(primaryEl, siblingEl) {
@@ -272,12 +273,13 @@ xh.getElementIndexCssWithClass = function (el) {
 
 // * 创建xpath和css selector
 xh.makeQueryForElement = function(el) {
-  let query = '';
-  let queryCss = '';
-  let queryCssStrict = '';
-  let hasBreak = false;
-  let isFirstList = true;
-  let levelLimit = xh.LEVEL_LIMIT;
+  let query = ''; // * 严格模式的xpath
+  let queryFuzzy = ''; // * 最近模糊匹配模式的xpath
+  let queryCss = ''; // * 最近模糊匹配模式的css-selector
+  let queryCssStrict = ''; // * 严格模式的css-selector
+  let hasBreak = false; // * 是否遇到非直接父子元素的情况
+  let isFirstList = true; // * 是否为第一组列表式
+  let levelLimit = xh.LEVEL_LIMIT; // * 在限定的层级内寻找列表式元素
 
   for (; ; ) {
     // * null
@@ -292,7 +294,8 @@ xh.makeQueryForElement = function(el) {
       continue;
     }
 
-    let component = el.tagName.toLowerCase();
+    let component = el.tagName.toLowerCase(); // * xpath 严格模式使用
+    let componentFuzzy = el.tagName.toLowerCase(); // * xpath 最近模糊模式使用
     let componentCss = el.tagName.toLowerCase(); // * css selector 模糊模式用
     let componentCssStrict = el.tagName.toLowerCase(); // * css selector 严格模式用
     let index = xh.getElementIndex(el);
@@ -301,17 +304,20 @@ xh.makeQueryForElement = function(el) {
 
     if (el.id) {
       component += '[@id=\'' + el.id + '\']';
+      componentFuzzy += '[@id=\'' + el.id + '\']';
       componentCss += '[id=\'' + el.id + '\']'; // * css selector 模糊模式用
       componentCssStrict += '[id=\'' + el.id + '\']'; // * css selector 严格模式用
     } else if (el.className) {
       component += '[@class=\'' + el.className + '\']';
+      componentFuzzy += '[@class=\'' + el.className + '\']';
 
       // * css seletor的class用经过刷选处理，目前最多只留下一个class名
       
       // * css seletor 严格模式
       componentCssStrict += '[class*=\'' + xh.cssClassOptimization(el.className.trim()) + '\']';
 
-      // * css seletor 模糊模式 如果当前元素有可能为数组成员，则不使用class属性
+      // * css seletor 模糊模式 如果当前元素有可能为数组成员， 限制class的使用
+      // //则不使用class属性
       if (
         // indexCss >= 1
         // && isFirstList
@@ -371,15 +377,19 @@ xh.makeQueryForElement = function(el) {
       // && indexCssWithClass === 1
       && !isFirstList
     ) {
-      // * 虽有可能为数组成员，但是已经离点击的元素较远，则设置为严格匹配模式
+      // * 虽有可能为数组成员，但是已经离点击的元素较远，则增加元素顺位标识
       componentCss += ':nth-child(' + indexCss + ')';
+      // * xpath的模糊模式在这里大致同理（暂时）
+      if (index >= 1) {
+        componentFuzzy += '[' + index + ']';
+      }
     } else if (
       indexCss >= 1
       && indexCssWithClass > 1
       && isFirstList
     ) {
       // console.log('set isFirstList', indexCssWithClass);
-      // * 有多个兄弟元素并且兄弟元素之间结构构造相似，极可能为数组成员，并且离点击的元素最为接近，则设置为模糊匹配模式
+      // * 有多个兄弟元素并且兄弟元素之间结构构造相似，极可能为数组成员，并且离点击的元素最为接近，则不增加元素顺位标识
       isFirstList = false;
     }
 
@@ -399,6 +409,7 @@ xh.makeQueryForElement = function(el) {
     // * 如果最后的元素是img，生成xpath需要"img/@src"
     if (query === '' && el.tagName.toLowerCase() === 'img') {
       component += '~/~@src'; // * 替换了分隔符
+      componentFuzzy += '~/~@src';
     }
     if (el.tagName.toLowerCase() === 'img') {
       if (queryCss === '') {
@@ -409,8 +420,11 @@ xh.makeQueryForElement = function(el) {
       }
     }
 
-    // * 连接xpath
+    // * 连接xpath 严格模式
     query = '~/~' + component + query; // * 替换了分隔符
+
+    // * 连接xpath 模糊模式
+    queryFuzzy = '~/~' + componentFuzzy + queryFuzzy; // * 替换了分隔符
 
     // * 判断是否为直接子元素
     if (!hasBreak) {
@@ -448,23 +462,41 @@ xh.makeQueryForElement = function(el) {
       // * 选中的是字符串开头
 
       // * 使用后一个关键词关系
+
+      // * xpath严格模式
       query = xh.xpathSpecStartPart({
         query,
         tmpSelection,
         tmpSelectionText
       });
+      // * xpath模糊模式
+      queryFuzzy = xh.xpathSpecStartPart({
+        query: queryFuzzy,
+        tmpSelection,
+        tmpSelectionText
+      })
     } else if (tmpSelection.anchorNode.length === tmpSelection.anchorOffset + tmpSelectionText.length) {
       // * 选中的是字符串结尾
 
       // * 使用前一个关键词关系
+
+      // * xpath严格模式
       query = xh.xpathSpecEndPart({
         query,
+        tmpSelection,
+        tmpSelectionText
+      });
+      // * xpath模糊模式
+      queryFuzzy = xh.xpathSpecEndPart({
+        query: queryFuzzy,
         tmpSelection,
         tmpSelectionText
       });
     } else if (tmpSelection.anchorNode.length !== tmpSelection.anchorOffset + tmpSelectionText.length) {
       // TODOS
       // * 需要判断前后的关键词
+
+      // * xpath严格模式
       // * 先用after来分割
       query = xh.xpathSpecEndPart({
         query,
@@ -477,12 +509,25 @@ xh.makeQueryForElement = function(el) {
         tmpSelection,
         tmpSelectionText
       });
+      // * xpath模糊模式
+      queryFuzzy = xh.xpathSpecEndPart({
+        query: queryFuzzy,
+        tmpSelection,
+        tmpSelectionText
+      });
+      // * 再用before来分割
+      queryFuzzy = xh.xpathSpecStartPart({
+        query: queryFuzzy,
+        tmpSelection,
+        tmpSelectionText
+      });
     }
   }
 
   // * 返回包含严格模式的xpath，最近模糊模式的css-selector，严格模式的css-selector
   return {
     query,
+    queryFuzzy,
     queryCss: queryCss.trim(),
     queryCssStrict: queryCssStrict.trim()
   };
@@ -509,10 +554,11 @@ xh.xpathSpecStartPart = function (param) {
   let step = 1;
   let letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
   while (true) {
+    // * 两边用来匹配断句或断词用的符号，例如空格、逗号，句号(包括中英文)（单纯的空格不能作为判断依据）
     let specialCharactersReg = /([\s,，\.。]?)([^\s]+)([\s,，\.。]?)/g;
-    // console.log('letterAfterSelectionText', letterAfterSelectionText);
+    console.log('letterAfterSelectionText', letterAfterSelectionText);
     let regRes = specialCharactersReg.exec(letterAfterSelectionText);
-    // console.log('regRes:', regRes);
+    console.log('regRes:', regRes);
     if (!regRes) {
       step += 1;
       if (tmpSelection.anchorNode.length >= startInx + step) {
@@ -526,9 +572,13 @@ xh.xpathSpecStartPart = function (param) {
         });
         console.log('xpathSpecKeyWordSub start query:');
         console.log(query);
+        break;
       }
     }
-    if (specLetterReg.test(regRes[2]) || regRes[3]) {
+    if (
+      specLetterReg.test(regRes[2])
+      || (regRes[3])
+    ) {
       shouldTrim = true;
       flagStop = true;
       break;
@@ -550,7 +600,7 @@ xh.xpathSpecStartPart = function (param) {
   if (flagStop) {
     query = xh.xpathSpecKeyWordSub({
       query,
-      key: shouldTrim ? letterAfterSelectionText.trimRight() : letterAfterSelectionText,
+      key: shouldTrim ? letterAfterSelectionText.substring(0, letterAfterSelectionText.length - 1) : letterAfterSelectionText,
       type: 'before'
     });
     console.log('xpathSpecKeyWordSub start query:');
@@ -562,7 +612,7 @@ xh.xpathSpecStartPart = function (param) {
 // * xpath 使用：划选为结尾的处理部分
 xh.xpathSpecEndPart = function (param) {
   // * 连接性字符的正则
-  const specLetterReg = /[-|:|'|"|——|：|’|“|,|，|.|。|;|；|(|（|\[|【|{|<|《]/g;
+  const specLetterReg = /[-:'"——：’“,，.。;；(（\[【{<《、]/g;
   let {
     query,
     tmpSelection,
@@ -574,10 +624,11 @@ xh.xpathSpecEndPart = function (param) {
   let step = 1;
   let letterBeforeSelectionText = tmpSelection.anchorNode.nodeValue.substring(endInx - step, endInx);
   while (true) {
-    let specialCharactersReg = /([\s,，\.。]?)([^\s]+)([\s,，\.。]?)/g;
-    // console.log('letterBeforeSelectionText', letterBeforeSelectionText);
+    // * 两边用来匹配断句或断词用的符号，例如空格、逗号，句号(包括中英文)（单纯的空格不能作为判断依据）
+    let specialCharactersReg = /([\s,，\.。、\?？]?)([^\s]+)([\s,，\.。、\?？]?)/g;
+    console.log('letterBeforeSelectionText', letterBeforeSelectionText);
     let regRes = specialCharactersReg.exec(letterBeforeSelectionText);
-    // console.log('regRes:', regRes);
+    console.log('regRes:', regRes);
     if (!regRes) {
       step += 1;
       if (endInx - step >= 0) {
@@ -594,7 +645,10 @@ xh.xpathSpecEndPart = function (param) {
         break;
       }
     }
-    if (regRes[1] || specLetterReg.test(regRes[2])) {
+    if (
+      (regRes[1])
+      || specLetterReg.test(regRes[2])
+    ) {
       shouldTrim = true;
       flagStop = true;
       break;
@@ -616,7 +670,7 @@ xh.xpathSpecEndPart = function (param) {
   if (flagStop) {
     query = xh.xpathSpecKeyWordSub({
       query,
-      key: shouldTrim ? letterBeforeSelectionText.trimLeft() : letterBeforeSelectionText,
+      key: shouldTrim ? letterBeforeSelectionText.substring(1, letterBeforeSelectionText.length) : letterBeforeSelectionText,
       type: 'after'
     });
     console.log('xpathSpecKeyWordSub end query:');
@@ -737,20 +791,6 @@ xh.checkParentHref = function (e) {
   }
 }
 
-// * 第一次开启功能时获取
-xh.getPresetData = function () {
-  // return axiosInstance({
-  //   method: 'get',
-  //   url: '/captcha'
-  // });
-  // return Promise.resolve(1);
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      resolve(1);
-    }, 2000);
-  });
-}
-
 // * 需要过滤的列表
 xh.keyList = [
   '@src',
@@ -781,102 +821,118 @@ xh.clearHighlights = function () {
   }
 };
 
-xh.getPreviewInsTemplateString = function () {
-  return `
-    <div id="c-preview-wrapper" class="c-preview-wrapper">
-      <div class="c-preview-content">
-        <p class="c-preview-title">数据预览<span id="c-preview-close" class="c-preview-close">X</span></p>
-        <pre id="c-preview-data" class="c-preview-data"></pre>
-        <div class="c-previwe-bottons">
-          <div id="c-preview-button-cancel" class="c-previwe-button white">取消</div>
-          <div id="c-preview-button-submit" class="c-previwe-button blue">提交</div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// * 打开预览的流程控制
-xh.previewRquest = function () {
-  xh.setSubmitCol();
-  if (!xh.previewIns) {
-    xh.createPreviewIns();
-    xh.bindPreviewListener();
-    xh.setPreviewData();
-  } else {
-    xh.showPreview();
-    xh.setPreviewData();
-  }
-}
+// -------------------------------------------------------------
 
 // * 打开修改数据的对话框流程
-
 xh.mdDataRequest = function () {
   xh.setSubmitCol();
   xh.setMdDataTable();
 }
 
-// * 显示预览窗口
-xh.showPreview = function () {
-  xh.previewIns && (xh.previewIns.style.display = 'block');
-}
-
-// * 关闭预览窗口
-xh.closePreview = function (event) {
-  event.stopPropagation();
-  xh.previewIns && (xh.previewIns.style.display = 'none');
-}
+// -------------------------------------------------------------
 
 // * 提交按钮的回调
-xh.submitData = function (event) {
-  // TODOS
-  /**
-   * 提交数据
-   */
-  event.stopPropagation();
-  console.log('提交数据');
-  xh.closePreview();
-  xh.createHint('提交成功（假）');
-  xh.showHint();
-  xh.closeHintDelay(2000);
+xh.submitData = function () {
+  httpLib.submitData(xh.submitCol)
+    .then((data) => {
+      console.log('httpLib submitData:', data);
+      if (data.data.code === 0) {
+        xh.setElMessage({
+          message: '提交成功',
+          showClose: true,
+          duration: 2000,
+          type: 'success'
+        });
+        xh.previewIns.setDialogVisible(false);
+      } else {
+        xh.setElMessage({
+          message: '提交失败',
+          showClose: true,
+          duration: 2000,
+          type: 'error'
+        });
+      }
+    })
+    .catch((err) => {
+      xh.setElMessage({
+        message: '提交失败',
+        showClose: true,
+        duration: 2000,
+        type: 'error'
+      });
+      console.log('httpLib submitData err:', err);
+    });
+}
+
+// * 打开预览窗口(流程控制)
+xh.setPreviewIns = function () {
+  xh.setSubmitCol();
+  if (!xh.previewIns) {
+    xh.previewInsWrapper = document.createElement('div');
+    xh.previewInsWrapper.id = 'c-preview-symbol-wrapper';
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(xh.previewInsWrapper);
+
+    xh.createPreviewIns();
+    xh.previewIns.$mount('#c-preview-symbol-wrapper');
+  } else {
+    xh.showPreview();
+  }
+  xh.setPreviewData();
 }
 
 // * 创建预览窗口的实例
 xh.createPreviewIns = function () {
-  if (!xh.previewIns) {
-    xh.previewIns = document.createElement('div');
-    xh.previewIns.classList.add('c-preview-symbol');
-  }
-  xh.previewIns.innerHTML = xh.getPreviewInsTemplateString();
-  if (xh.docuBody === null) {
-    xh.docuBody = document.querySelector('body');
-  }
-  xh.docuBody.appendChild(xh.previewIns);
-}
-
-// * 绑定预览窗口内的事件
-xh.bindPreviewListener = function () {
-  if (xh.previewIns) {
-    // * 关闭按钮
-    let closeIns = xh.previewIns.querySelector('#c-preview-close');
-    closeIns.addEventListener('click', xh.closePreview);
-  
-    // * 确认按钮
-    xh.previewIns.querySelector('#c-preview-button-submit').addEventListener('click', xh.submitData);
-  
-    // * 取消按钮
-    xh.previewIns.querySelector('#c-preview-button-cancel').addEventListener('click', xh.closePreview);
-  }
+  xh.previewIns = new Vue({
+    data: {
+      dialogTableVisible: true,
+      submitDataStr: ''
+    },
+    methods: {
+      setSubmitDataStr (str) {
+        this.submitDataStr = str;
+      },
+      setDialogVisible (param) {
+        this.dialogTableVisible = param;
+      },
+      submit (event) {
+        event.stopPropagation();
+        xh.submitData();
+      }
+    },
+    template: `
+      <div class="c-preview-symbol" id="c-preview-symbol">
+        <el-dialog title="" :visible.sync="dialogTableVisible">
+          <pre id="c-preview-data" class="c-preview-data">{{ submitDataStr }}</pre>
+          <span slot="footer" class="dialog-footer">
+            <el-button @click="setDialogVisible(false)">关闭窗口</el-button>
+            <el-button @click="submit" type="primary">提交</el-button>
+          </span>
+        </el-dialog>
+      </div>
+    `
+  });
 }
 
 xh.setPreviewData = function () {
   if (xh.previewIns) {
-    // let previewData = JSON.stringify(xh.cssRuleCol, null, 2);
-    let previewData = JSON.stringify(xh.submitCol, null, 2);
-    // console.log('previewData', previewData);
-    xh.previewIns.querySelector('#c-preview-data').innerHTML = previewData;
+    xh.previewIns.setSubmitDataStr(JSON.stringify(xh.submitCol, null, 2));
   }
 }
+
+// * 显示预览窗口
+xh.showPreview = function () {
+  xh.previewIns.setDialogVisible(true);
+}
+
+// * 关闭预览窗口
+xh.closePreview = function () {
+  xh.previewIns.setDialogVisible(false);
+}
+
+// --------------------------------------------------------------
 
 xh.getHintInsTemplateString = function (param) {
   let { text, type } = param;
@@ -983,10 +1039,10 @@ xh.setSubmitCol = function () {
   xh.submitCol = {
     name: 'selector name',
     content: {},
-    meta: {}
+    metaContent: {}
   };
-  xh.submitCol.rule_id = xh.currentRuleRowSelected.id;
-  xh.submitCol.meta_id = xh.currentMetaRowSelected.id;
+  xh.submitCol.ruleId = xh.currentRuleRowSelected.id;
+  xh.submitCol.metaId = xh.currentMetaRowSelected.id;
   for (let item of Object.entries(xh.areaCreated)) {
     let metaCotentItem = xh.currentMetaRowSelected.content[item[0]];
     xh.submitCol.content[item[0]] = {
@@ -995,12 +1051,12 @@ xh.setSubmitCol = function () {
       schema: metaCotentItem
     }
     if (metaCotentItem.type === 'array') {
-      xh.submitCol.content[item[0]].path = item[1].xpath;
+      xh.submitCol.content[item[0]].path = item[1].xpathFuzzy;
     } else {
       xh.submitCol.content[item[0]].path = item[1].xpath;
     }
-    if (!xh.submitCol.meta[item[0]]) {
-      xh.submitCol.meta[item[0]] = metaCotentItem;
+    if (!xh.submitCol.metaContent[item[0]]) {
+      xh.submitCol.metaContent[item[0]] = metaCotentItem;
     }
   }
 }
@@ -1036,7 +1092,7 @@ xh.setAreaCreateNested = function (area, data) {
 xh.confirmSavePath = function (data) {
   let isSuccess = false;
   console.log('confirm', data);
-  let { cssSelector, cssSelectorStrict, xpath, meta, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
+  let { cssSelector, cssSelectorStrict, xpath, xpathFuzzy, meta, action, areaSelected, isAreaIdenti, areaTitleSelected, areaNewLimit, areaNewLimitSetter } = data;
   // * 判断是否有选择的路径多级
   // * 通过action判断是新建识别区域还是选择识别区域
   if (action === xh.NEW_AREA && !areaNewLimitSetter) {
@@ -1044,6 +1100,7 @@ xh.confirmSavePath = function (data) {
       cssSelector,
       cssSelectorStrict,
       xpath,
+      xpathFuzzy,
       isAreaIdenti,
       meta
     };
@@ -1057,6 +1114,7 @@ xh.confirmSavePath = function (data) {
       cssSelector,
       cssSelectorStrict,
       xpath,
+      xpathFuzzy,
       isAreaIdenti,
       meta
     };
@@ -1066,6 +1124,7 @@ xh.confirmSavePath = function (data) {
       cssSelector,
       cssSelectorStrict,
       xpath,
+      xpathFuzzy,
       isAreaIdenti,
       meta
     };
@@ -1523,12 +1582,15 @@ xh.createInputBoxIns = function () {
       IATitleType: 'IATitlePreset',
       levelLimit: xh.LEVEL_LIMIT,
       currentRuleMeta: [],
-      xpath: xhBarInstance.query_
+      xpath: xhBarInstance.query_,
+      xpathFuzzy: xhBarInstance.queryFuzzy_,
+      typeByPresetMeta: ''
     },
     methods: {
       resetDataStatus () {
         // * 重新构造一个选项
         this.setCurrentRuleMeta();
+        // * 重置值
         this.areaCreated = xh.areaCreated;
         this.cssSeletorOptimizationRes = xhBarInstance.queryCssSelector.trim();
         this.cssSeletorStrictOptimizationRes = xhBarInstance.queryCssSelectorStrict.trim();
@@ -1541,6 +1603,8 @@ xh.createInputBoxIns = function () {
         this.areaNewLimitSetter = '';
         this.levelLimit = xh.LEVEL_LIMIT;
         this.xpath = xhBarInstance.query_;
+        this.xpathFuzzy = xhBarInstance.queryFuzzy_;
+        this.typeByPresetMeta = '';
         this.setpresetMetaDefault();
         this.setAreaNewLimitDefault();
         this.setRadioAreaDefault();
@@ -1587,6 +1651,7 @@ xh.createInputBoxIns = function () {
           cssSelector: this.cssSeletorOptimizationRes,
           cssSelectorStrict: this.cssSeletorStrictOptimizationRes,
           xpath: this.xpath,
+          xpathFuzzy: this.xpathFuzzy,
           areaSelected: this.areaSelected,
           isAreaIdenti: this.radioArea === xh.NEW_AREA,
           areaTitleSelected: this.areaTitleSelected,
@@ -1634,6 +1699,9 @@ xh.createInputBoxIns = function () {
           arr = Object.keys(xh.currentMetaRowSelected.content);
         }
         this.currentRuleMeta = arr;
+      },
+      setTypeByPresetMeta () {
+        this.typeByPresetMeta = xh.currentMetaRowSelected && xh.currentMetaRowSelected.content && xh.currentMetaRowSelected.content[this.presetMeta] ? xh.currentMetaRowSelected.content[this.presetMeta].type : '';
       }
     },
     computed: {
@@ -1641,6 +1709,16 @@ xh.createInputBoxIns = function () {
     watch: {
       xpath (newValue, oldValue) {
         xhBarInstance.query_ = newValue;
+      },
+      xpathFuzzy (newValue, oldValue) {
+        xhBarInstance.queryFuzzy_ = newValue;
+      },
+      presetMeta (newValue, oldValue) {
+        console.log('newValue', newValue);
+        if (newValue !== oldValue) {
+          this.setTypeByPresetMeta();
+          console.log('this.typeByPresetMeta', this.typeByPresetMeta);
+        }
       }
     },
     mounted () {
@@ -1659,7 +1737,12 @@ xh.createInputBoxIns = function () {
           </div>
           <div class="select-input--wrapper">
             <div class="c-xpath-textarea-wrapper">
+              <p>严格模式</p>
               <textarea class="" name="" v-model="xpath"></textarea>
+            </div>
+            <div class="c-xpath-textarea-wrapper">
+              <p>模糊模式</p>
+              <textarea class="" name="" v-model="xpathFuzzy"></textarea>
             </div>
             <div id="identificationArea" class="c-identification-area-select" v-show="false">
               <div class="c-identificationAreaSelect-wrapper">
@@ -1696,10 +1779,14 @@ xh.createInputBoxIns = function () {
                   </select>
                 </div>
                 <div class="c-block-full c-talign">
-                  <span class="">类型：</span>
+                  <span class="">键名：</span>
                   <select name="symbolType" id="symbomSelect" v-model="presetMeta" class="c-input-cl c-disp-ib" style="margin-left: 0; margin-right: 0">
                     <option v-for="metas in currentRuleMeta" :key="metas" :value="metas">{{ metas }}</option>
                   </select>
+                </div>
+                <div v-show="presetMeta" class="c-block-full c-talign" style="padding-bottom: 20px;">
+                  <span class="">类型：</span>
+                  <span class="c-disp-ib">{{ typeByPresetMeta }}</span>
                 </div>
               </div>
             </div>
@@ -2059,8 +2146,10 @@ xh.Bar = function () {
   this.currElPos = null;
   this.popupPos = null;
 
-  // * 使用新分隔符的query
+  // * 使用新分隔符的xpath严格
   this.queryNewSpe_ = null;
+  // * 使用新分隔符的xpath模糊
+  this.queryNewSpeFuzzy_ = null;
   // * css selector 模糊模式
   this.queryCssSelector = null;
   // * css selector 严格模式
@@ -2095,9 +2184,17 @@ xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   }
 
   this.queryNewSpe_ = queryObj ? queryObj.query : '';
+  this.queryNewSpeFuzzy_ = queryObj ? queryObj.queryFuzzy : '';
+
+  // * 保存xpath严格模式
   this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
   console.log('query_:');
   console.log(this.query_);
+
+  // * 保存xpath严格模式
+  this.queryFuzzy_ = this.queryNewSpeFuzzy_.replace(/~\/~/g, '/');
+  console.log('queryFuzzy_:');
+  console.log(this.queryFuzzy_);
 
   this.queryCssSelector = queryObj ? queryObj.queryCss : '';
   console.log('queryCssSelector:');
@@ -2160,34 +2257,50 @@ xh.Bar.prototype.showBar_ = function() {
           message: '获取数据中'
         });
       }
-      xh.getPresetData()
+      let getRulesDataPM = httpLib.getPresetRulesData();
+      let getMetasDataPM = httpLib.getPresetMetasData();
+      
+      Promise.all([getRulesDataPM, getMetasDataPM])
         .then((data) => {
-          xh.FIRST_OPEN = false;
-          if (xh.elMsgIns) {
-            xh.elMsgIns.close();
-            xh.elMsgIns = null;
+          console.log('getPresetData:', data);
+          if (
+            data[0] && data[1]
+            && data[0].data && data[0].data.code === 0
+            && data[1].data && data[1].data.code === 0
+          ) {
+            xh.FIRST_OPEN = false;
+            if (xh.elMsgIns) {
+              xh.elMsgIns.close();
+              xh.elMsgIns = null;
+            }
+            xh.setElMessage({
+              showClose: true,
+              duration: 2000,
+              type: 'success',
+              message: '获取数据成功'
+            });
+            xh.presetData.rules = data[0].data.data ? data[0].data.data : [];
+            xh.presetData.metas = data[1].data.data ? data[1].data.data : [];
+            // * 备开启功能前的准备
+            this.prepareShowBar_();
+            xh.setRuleMetaTable();
+          } else {
+            xh.setElMessage({
+              showClose: true,
+              duration: 2000,
+              type: 'error',
+              message: '获取数据失败'
+            });
           }
+        })
+        .catch((err) => {
           xh.setElMessage({
             showClose: true,
             duration: 2000,
-            type: 'success',
-            message: '获取成功'
+            type: 'error',
+            message: '获取数据失败'
           });
-          console.log(data);
-          // TODOS
-          /**
-           * 保存获取的数据
-           */
-          // * 备开启功能前的准备
-          this.prepareShowBar_();
-          xh.setRuleMetaTable();
-        })
-        .catch((err) => {
-          if (xh.elMsgIns) {
-            xh.elMsgIns.close();
-            xh.elMsgIns = null;
-          }
-          console.log('http getPresetData err:', err);
+          console.log('getPresetData all err', err);
         });
     } else {
       this.prepareShowBar_();
@@ -2333,7 +2446,7 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
 // * 预览css selector合集
 xh.Bar.prototype.previewCssRuleCol = function () {
   if (Object.keys(xh.areaCreated).length > 0) {
-    xh.previewRquest();
+    xh.setPreviewIns();
   } else {
     xh.setElMessage({
       type: 'warning',
@@ -2519,10 +2632,6 @@ xh.Bar.prototype.mouseClick_ = function (e) {
       domPath[i]
       && domPath[i].className
       && xh.IsIncludeClassNameInSpec(domPath[i].className)
-      // (domPath[i].className.indexOf('c-hint--wrapper') !== -1
-      // || domPath[i].className.indexOf('el-message') !== -1
-      // || domPath[i].className.indexOf('c-el-table-wrapper') !== -1
-      // || domPath[i].className.indexOf('c-md-data-table-wrapper') !== -1)
     ) {
       e.stopPropagation();
       flagStop = true;
@@ -2536,43 +2645,7 @@ xh.Bar.prototype.mouseClick_ = function (e) {
   // * 阻止a标签默认事件（目前层级设为3）
   let resHrefJumpControl = xh.hrefJumpControl(e);
   flagStop = resHrefJumpControl.flagStop ? resHrefJumpControl.flagStop : flagStop;
-  // if (e.target.tagName === 'A') {
-  //   e.preventDefault();
-  //   if (xh.canJump(e.target)) {
-  //     let urlT = e.target.attributes.href.value;
-  //     let href = urlT;
-  //     if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
-  //       urlT = originS + href;
-  //     }
-  //     console.log('urlT', urlT);
-  //     flagStop = true;
-  //     xh.createNewTab(urlT);
-  //   }
-  // } else if (xh.checkParentHref(e)) {
-  //   e.preventDefault();
-  //   if (e.target.parentNode && xh.canJump(e.target.parentNode)) {
-  //     let urlT = e.target.parentNode.attributes.href.value;
-  //     let href = urlT;
-  //     if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
-  //       urlT = originS + href;
-  //     }
-  //     console.log('urlT', urlT);
-  //     flagStop = true;
-  //     xh.createNewTab(urlT);
-  //   }
-  // } else if (xh.checkParentHref(e.target.parentNode)) {
-  //   e.preventDefault();
-  //   if (e.target.parentNode && e.target.parentNode.parentNode && xh.canJump(e.target.parentNode.parentNode)) {
-  //     let urlT = e.target.parentNode.parentNode.attributes.href.value;
-  //     let href = urlT;
-  //     if (href.indexOf('http') === -1 && href.indexOf('https') === -1) {
-  //       urlT = originS + href;
-  //     }
-  //     console.log('urlT', urlT);
-  //     flagStop = true;
-  //     xh.createNewTab(urlT);
-  //   }
-  // }
+
   // * 如果已经获取到元素并且没有被阻止冒泡则显示弹框
   if (
     this.currEl_

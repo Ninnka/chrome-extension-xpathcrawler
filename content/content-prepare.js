@@ -31,4 +31,35 @@ let axiosInstance = axios.create({
 axiosInstance.defaults.headers.common['X-Custom-Header'] = 'foobar';
 // axiosInstance.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
 
-axiosInstance.defaults.baseURL = 'http://www.faker.com';
+axiosInstance.defaults.baseURL = 'http://10.0.0.39:10101';
+
+// return new Promise((resolve, reject) => {
+//   setTimeout(() => {
+//     resolve(1);
+//   }, 2000);
+// });
+
+let httpLib = {};
+
+// * 第一次开启功能时获取Rules
+httpLib.getPresetRulesData = function () {
+  return axiosInstance({
+    method: 'get',
+    url: '/rules'
+  });
+}
+
+httpLib.getPresetMetasData = function () {
+  return axiosInstance({
+    method: 'get',
+    url: '/metas'
+  });
+}
+
+httpLib.submitData = function (data) {
+  return axiosInstance({
+    method: 'post',
+    url: '/selectors',
+    data
+  })
+};

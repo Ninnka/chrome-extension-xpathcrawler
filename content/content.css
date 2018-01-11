@@ -78,6 +78,7 @@ img.xh-highlight {
   display: inline-block !important;
 }
 #c-input-box {
+  font-size: 16px !important;
   position: fixed;
   width: 400px;
   min-height: 400px;
@@ -130,7 +131,15 @@ img.xh-highlight {
   vertical-align: middle !important;
 }
 #c-input-box .c-xpath-textarea-wrapper textarea {
-  min-height: 120px;
+  min-height: 96px !important;
+  font-size: 16px !important;
+}
+#c-input-box .c-xpath-textarea-wrapper p {
+  width: 80%;
+  font-size: 18px !important;
+  color: #888888 !important;
+  text-align: left !important;
+  margin: 0 auto 6px !important;
 }
 #c-input-box .c-buttons {
   width: 80% !important;
@@ -242,12 +251,13 @@ img.xh-highlight {
 }
 .c-preview-data {
   background: rgb(236, 236, 236);
-  height: 70% !important;
-  width: 90% !important;
+  max-height: 600px !important;
+  color: rgb(96, 98, 102) !important;
+  /* height: 70% !important; */
+  /* width: 90% !important; */
   margin: 20px auto;
   overflow: auto !important;
   text-align: left !important;
-  color: #080 !important;
   line-height: 1.3 !important;
 }
 .c-previwe-bottons {
