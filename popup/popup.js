@@ -15,7 +15,8 @@ const typeList = {
   toggleBar: 'toggleBar',
   getStatus: 'getStatus',
   openTableDialog: 'openTableDialog',
-  openModifyDataDialog: 'openModifyDataDialog'
+  openModifyDataDialog: 'openModifyDataDialog',
+  openModufyBaseUrlDialog: 'openModufyBaseUrlDialog'
 }
 
 // 监听是否开启或关闭状态
@@ -87,6 +88,11 @@ function openModifyDataDialog() {
   sendMessage_(typeList.openModifyDataDialog);
 }
 
+// * 打开修改服务器地址的对话框
+function openModufyBaseUrlDialog () {
+  sendMessage_(typeList.openModufyBaseUrlDialog);
+}
+
 // 为按钮添加点击事件
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('submit').addEventListener('click', messageBox);
@@ -94,4 +100,5 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('status').addEventListener('click', switchStatus);
   document.querySelector('#selectRule').addEventListener('click', openTableDialog);
   document.querySelector('#modifyData').addEventListener('click', openModifyDataDialog);
+  document.querySelector('#modifyBaseUrl').addEventListener('click', openModufyBaseUrlDialog);
 });

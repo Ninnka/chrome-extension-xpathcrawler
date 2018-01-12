@@ -451,12 +451,12 @@ xh.makeQueryForElement = function(el) {
   console.log('tmpSelection', tmpSelection);
   let tmpSelectionText = tmpSelection.toString();
   console.log('tmpSelectionText', tmpSelectionText);
-  // * 如果使用了划选功能，并且划选的文本必须在同一tag内，否则不算划选
   if (
     tmpSelectionText
     && tmpSelection.anchorNode.nodeValue !== tmpSelectionText
     && tmpSelection.anchorNode.nodeValue.indexOf(tmpSelectionText) !== -1
   ) {
+    // * 如果使用了划选功能，并且划选的文本必须在同一tag内
     // * 判断使用哪种方式生成
     if (tmpSelection.anchorOffset === 0) {
       // * 选中的是字符串开头
@@ -474,7 +474,7 @@ xh.makeQueryForElement = function(el) {
         query: queryFuzzy,
         tmpSelection,
         tmpSelectionText
-      })
+      });
     } else if (tmpSelection.anchorNode.length === tmpSelection.anchorOffset + tmpSelectionText.length) {
       // * 选中的是字符串结尾
 
@@ -522,6 +522,85 @@ xh.makeQueryForElement = function(el) {
         tmpSelectionText
       });
     }
+  } else if (tmpSelectionText && xhBarInstance.currEl_) {
+    // * 这部分表示使用了跨节点划选
+    let currElTextContent = xhBarInstance.currEl_.textContent;
+    console.log('currElTextContent', currElTextContent);
+    let anchorOffset = currElTextContent.indexOf(tmpSelectionText);
+    if (anchorOffset === 0) {
+      // * 划选中的为文本开头
+      
+      const customSeletion = {
+        anchorOffset,
+        nodeValue: currElTextContent,
+        nodeValueLen: currElTextContent.length
+      };
+      // * xpath严格模式
+      query = xh.xpathSpecStartPart({
+        query,
+        customSeletion,
+        tmpSelectionText
+      });
+      // * xpath模糊模式
+      queryFuzzy = xh.xpathSpecStartPart({
+        query: queryFuzzy,
+        customSeletion,
+        tmpSelectionText
+      });
+    } else if (currElTextContent.length === anchorOffset + tmpSelectionText.length) {
+      // * 划选中的为文本结尾
+
+      const customSeletion = {
+        anchorOffset,
+        nodeValue: currElTextContent,
+        nodeValueLen: currElTextContent.length
+      };
+      // * xpath严格模式
+      query = xh.xpathSpecEndPart({
+        query,
+        customSeletion,
+        tmpSelectionText
+      });
+      // * xpath模糊模式
+      queryFuzzy = xh.xpathSpecEndPart({
+        query: queryFuzzy,
+        customSeletion,
+        tmpSelectionText
+      });
+    } else if (currElTextContent.length !== anchorOffset + tmpSelectionText.length) {
+      // * 划选中的为中间文本
+
+      const customSeletion = {
+        anchorOffset,
+        nodeValue: currElTextContent,
+        nodeValueLen: currElTextContent.length
+      };
+      // * xpath严格模式
+      // * 先用after来分割
+      query = xh.xpathSpecEndPart({
+        query,
+        customSeletion,
+        tmpSelectionText
+      });
+      // * 再用before来分割
+      query = xh.xpathSpecStartPart({
+        query,
+        customSeletion,
+        tmpSelectionText
+      });
+      // * xpath模糊模式
+      queryFuzzy = xh.xpathSpecEndPart({
+        query: queryFuzzy,
+        customSeletion,
+        tmpSelectionText
+      });
+      // * 再用before来分割
+      queryFuzzy = xh.xpathSpecStartPart({
+        query: queryFuzzy,
+        customSeletion,
+        tmpSelectionText
+      });
+    }
   }
 
   // * 返回包含严格模式的xpath，最近模糊模式的css-selector，严格模式的css-selector
@@ -546,13 +625,30 @@ xh.xpathSpecStartPart = function (param) {
   let {
     query,
     tmpSelection,
+    customSeletion,
     tmpSelectionText
   } = param;
+
   let flagStop = false;
   let shouldTrim = false;
-  let startInx = tmpSelection.anchorOffset + tmpSelectionText.length;
+
+  let anchorOffset = 0; // * 文本起始偏移量
+  let nodeValue = ''; // * 总的文本值
+  let nodeValueLen = ''; // * 总的文本长度
+
+  if (tmpSelection) {
+    anchorOffset = tmpSelection.anchorOffset;
+    nodeValue = tmpSelection.anchorNode.nodeValue;
+    nodeValueLen = tmpSelection.anchorNode.length;
+  } else if (customSeletion) {
+    anchorOffset = customSeletion.anchorOffset;
+    nodeValue = customSeletion.nodeValue;
+    nodeValueLen = customSeletion.nodeValueLen;
+  }
+
+  let startInx = anchorOffset + tmpSelectionText.length;
   let step = 1;
-  let letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
+  let letterAfterSelectionText = nodeValue.substring(startInx, startInx + step);
   while (true) {
     // * 两边用来匹配断句或断词用的符号，例如空格、逗号，句号(包括中英文)（单纯的空格不能作为判断依据）
     let specialCharactersReg = /([\s,，\.。、\?？]?)([^\s]+)([\s,，\.。、\?？]?)/g;
@@ -561,8 +657,8 @@ xh.xpathSpecStartPart = function (param) {
     console.log('regRes:', regRes);
     if (!regRes) {
       step += 1;
-      if (tmpSelection.anchorNode.length >= startInx + step) {
-        letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
+      if (nodeValueLen >= startInx + step) {
+        letterAfterSelectionText = nodeValue.substring(startInx, startInx + step);
         continue;
       } else {
         query = xh.xpathSpecKeyWordSub({
@@ -584,8 +680,8 @@ xh.xpathSpecStartPart = function (param) {
       break;
     } else {
       step += 1;
-      if (tmpSelection.anchorNode.length >= startInx + step) {
-        letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
+      if (nodeValueLen >= startInx + step) {
+        letterAfterSelectionText = nodeValue.substring(startInx, startInx + step);
       } else {
         shouldTrim = true;
         if (regRes[1] === ' ') {
@@ -617,13 +713,30 @@ xh.xpathSpecEndPart = function (param) {
   let {
     query,
     tmpSelection,
+    customSeletion,
     tmpSelectionText
   } = param;
+
   let flagStop = false;
   let shouldTrim = false;
-  let endInx = tmpSelection.anchorOffset;
+
+  let anchorOffset = 0; // * 文本起始偏移量
+  let nodeValue = ''; // * 总的文本值
+  let nodeValueLen = ''; // * 总的文本长度
+
+  if (tmpSelection) {
+    anchorOffset = tmpSelection.anchorOffset;
+    nodeValue = tmpSelection.anchorNode.nodeValue;
+    nodeValueLen = tmpSelection.anchorNode.length;
+  } else if (customSeletion) {
+    anchorOffset = customSeletion.anchorOffset;
+    nodeValue = customSeletion.nodeValue;
+    nodeValueLen = customSeletion.nodeValueLen;
+  }
+
+  let endInx = anchorOffset;
   let step = 1;
-  let letterBeforeSelectionText = tmpSelection.anchorNode.nodeValue.substring(endInx - step, endInx);
+  let letterBeforeSelectionText = nodeValue.substring(endInx - step, endInx);
   while (true) {
     // * 两边用来匹配断句或断词用的符号，例如空格、逗号，句号(包括中英文)（单纯的空格不能作为判断依据）
     let specialCharactersReg = /([\s,，\.。、\?？]?)([^\s]+)([\s,，\.。、\?？]?)/g;
@@ -633,7 +746,7 @@ xh.xpathSpecEndPart = function (param) {
     if (!regRes) {
       step += 1;
       if (endInx - step >= 0) {
-        letterBeforeSelectionText = tmpSelection.anchorNode.nodeValue.substring(endInx - step, endInx);
+        letterBeforeSelectionText = nodeValue.substring(endInx - step, endInx);
         continue;
       } else {
         query = xh.xpathSpecKeyWordSub({
@@ -656,7 +769,7 @@ xh.xpathSpecEndPart = function (param) {
     } else {
       step += 1;
       if (endInx - step >= 0) {
-        letterBeforeSelectionText = tmpSelection.anchorNode.nodeValue.substring(endInx - step, endInx);
+        letterBeforeSelectionText = nodeValue.substring(endInx - step, endInx);
       } else {
         shouldTrim = true;
         if (regRes[3] === ' ') {
@@ -832,6 +945,82 @@ xh.mdDataRequest = function () {
 }
 
 // -------------------------------------------------------------
+
+// * 修改服务器地址相关
+
+xh.setMdBaseUrlForm = function () {
+  if (!xh.mdBaseUrlFormIns) {
+    let tmpWrapper = document.createElement('div');
+    tmpWrapper.classList.add('c-base-url-form-wrapper');
+    tmpWrapper.id = 'c-base-url-form-wrapper';
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(tmpWrapper);
+    xh.createMdBaseUrlForm();
+    xh.mdBaseUrlFormIns.$mount('#c-base-url-form-wrapper');
+  } else {
+    xh.showMdBaseUrlForm();
+    xh.mdBaseUrlFormIns.resetDataStatus();
+  }
+}
+
+xh.createMdBaseUrlForm = function () {
+  console.log('axiosInstance.defaults', axiosInstance.defaults);
+  xh.mdBaseUrlFormIns = new Vue({
+    data: {
+      dialogTableVisible: true,
+      baseURL: axiosInstance.defaults.baseURL
+    },
+    methods: {
+      setDialogVisible (param) {
+        this.dialogTableVisible = param;
+      },
+      resetDataStatus () {
+        this.baseURL = axiosInstance.defaults.baseURL;
+      },
+      setBaseUrlGlobal () {
+        axiosInstance.defaults.baseURL = this.baseURL;
+        xh.mdBaseUrlFormIns.setDialogVisible(false);
+        xh.setElMessage({
+          message: '修改成功',
+          duration: 1500,
+          showClose: true,
+          type: 'success'
+        });
+      }
+    },
+    template: `
+      <div class="c-base-url-form" id="c-base-url-form">
+        <el-dialog title="" :visible.sync="dialogTableVisible">
+          <el-form ref="form" label-width="80px">
+            <el-form-item label="BaseUrl">
+              <el-input v-model="baseURL"></el-input>
+            </el-form-item>
+          </el-form>
+          <span slot="footer" class="dialog-footer">
+            <el-button @click="setDialogVisible(false)">关闭窗口</el-button>
+            <el-button @click="resetDataStatus">重置</el-button>
+            <el-button @click="setBaseUrlGlobal" type="primary">确认修改</el-button>
+          </span>
+        </el-dialog>
+      </div>
+    `
+  });
+}
+
+xh.showMdBaseUrlForm = function () {
+  xh.mdBaseUrlFormIns.setDialogVisible(true);
+};
+
+
+xh.hideMdBaseUrlForm = function () {
+  xh.mdBaseUrlFormIns.setDialogVisible(false);
+};
+
+// -------------------------------------------------------------
+
+// * 预览窗口相关
 
 // * 提交按钮的回调
 xh.submitData = function () {
@@ -2106,7 +2295,8 @@ xh.specClassNameList = [
   'c-preview-symbo',
   'c-el-table-wrapper',
   'el-message',
-  'c-md-data-table-wrappe'
+  'c-md-data-table-wrappe',
+  'c-base-url-form'
 ];
 
 // * 包含白名单中的类名
@@ -2429,27 +2619,38 @@ xh.Bar.prototype.setCurrElPre = function () {
 
 // * 监听的回调方法
 xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
-  if (request.type === 'evaluate') {
-    xh.clearHighlights();
-    this.query_ = request.query;
-    this.updateBar_(false);
-  } else if (request.type === 'moveBar') {
-    // this.barFrame_.classList.toggle('bottom');
-  } else if (request.type === 'hideBar') {
-    this.hideBar_();
-    xh.currElIsSelecting = false;
-    // xh.unPreventHref();
-    window.focus();
-  } else if (request.type === 'toggleBar') {
-    this.toggleBar_();
-  } else if (request.type === 'previewAndSubmit') {
-    this.previewCssRuleCol();
-  } else if (request.type === 'cancelAll') {
-    this.resetCssRuleCol();
-  } else if (request.type === 'openTableDialog') {
-    this.openTableDialog();
-  } else if (request.type === 'openModifyDataDialog') {
-    this.openModifyDataDialog();
+  switch (request.type) {
+    case 'evaluate':
+      xh.clearHighlights();
+      this.query_ = request.query;
+      this.updateBar_(false);
+      break;
+    case 'hideBar':
+      this.hideBar_();
+      xh.currElIsSelecting = false;
+      // xh.unPreventHref();
+      break;
+    case 'toggleBar':
+      this.toggleBar_();
+      break;
+    case 'previewAndSubmit':
+      this.previewCssRuleCol();
+      break;
+    case 'cancelAll':
+      this.resetCssRuleCol();
+      break;
+    case 'openTableDialog':
+      this.openTableDialog();
+      break;
+    case 'openModifyDataDialog':
+      this.openModifyDataDialog();
+      break;
+    case 'openModufyBaseUrlDialog':
+      console.log('openModufyBaseUrlDialog');
+      this.openModufyBaseUrlDialog();
+      break;
+    default:
+      break;
   }
 };
 
@@ -2509,6 +2710,11 @@ xh.Bar.prototype.openModifyDataDialog = function () {
       showClose: true
     });
   }
+}
+
+// * 打开修改服务器地址的form dialog
+xh.Bar.prototype.openModufyBaseUrlDialog = function () {
+  xh.setMdBaseUrlForm();
 }
 
 xh.Bar.prototype.mouseMove_ = function(e) {

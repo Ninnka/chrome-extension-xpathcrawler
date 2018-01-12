@@ -96,7 +96,7 @@ var handleMouseMove = function(e) {
     }
     lastMoveTimeInMs = timeInMs;
     // Tell content script to move iframe to a different part of the screen.
-    chrome.runtime.sendMessage({type: 'moveBar'});
+    // chrome.runtime.sendMessage({type: 'moveBar'});
   }
 };
 
