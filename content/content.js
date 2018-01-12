@@ -542,7 +542,7 @@ xh.xpathSpecKeyWordSub = function (param) {
 // * xpath 使用：划选为开头的处理部分
 xh.xpathSpecStartPart = function (param) {
   // * 连接性字符的正则
-  const specLetterReg = /[-|:|'|"|——|：|’|“|,|，|.|。|;|；|)|）|\]|】|}|>|》]/g;
+  const specLetterReg = /[-:'"——：’”,，.。;；)）\]】}>》、]/g;
   let {
     query,
     tmpSelection,
@@ -555,7 +555,7 @@ xh.xpathSpecStartPart = function (param) {
   let letterAfterSelectionText = tmpSelection.anchorNode.nodeValue.substring(startInx, startInx + step);
   while (true) {
     // * 两边用来匹配断句或断词用的符号，例如空格、逗号，句号(包括中英文)（单纯的空格不能作为判断依据）
-    let specialCharactersReg = /([\s,，\.。]?)([^\s]+)([\s,，\.。]?)/g;
+    let specialCharactersReg = /([\s,，\.。、\?？]?)([^\s]+)([\s,，\.。、\?？]?)/g;
     console.log('letterAfterSelectionText', letterAfterSelectionText);
     let regRes = specialCharactersReg.exec(letterAfterSelectionText);
     console.log('regRes:', regRes);
@@ -575,11 +575,11 @@ xh.xpathSpecStartPart = function (param) {
         break;
       }
     }
-    if (
-      specLetterReg.test(regRes[2])
-      || (regRes[3])
-    ) {
+    if (regRes[3]) {
       shouldTrim = true;
+      flagStop = true;
+      break;
+    } else if (specLetterReg.test(regRes[2])) {
       flagStop = true;
       break;
     } else {
@@ -598,9 +598,10 @@ xh.xpathSpecStartPart = function (param) {
     }
   }
   if (flagStop) {
+    let key = shouldTrim ? letterAfterSelectionText.trimRight() : letterAfterSelectionText;
     query = xh.xpathSpecKeyWordSub({
       query,
-      key: shouldTrim ? letterAfterSelectionText.substring(0, letterAfterSelectionText.length - 1) : letterAfterSelectionText,
+      key,
       type: 'before'
     });
     console.log('xpathSpecKeyWordSub start query:');
@@ -645,11 +646,11 @@ xh.xpathSpecEndPart = function (param) {
         break;
       }
     }
-    if (
-      (regRes[1])
-      || specLetterReg.test(regRes[2])
-    ) {
+    if (regRes[1]) {
       shouldTrim = true;
+      flagStop = true;
+      break;
+    } else if (specLetterReg.test(regRes[2])) {
       flagStop = true;
       break;
     } else {
@@ -668,9 +669,10 @@ xh.xpathSpecEndPart = function (param) {
     }
   }
   if (flagStop) {
+    let key = shouldTrim ? letterBeforeSelectionText.trimLeft() : letterBeforeSelectionText;
     query = xh.xpathSpecKeyWordSub({
       query,
-      key: shouldTrim ? letterBeforeSelectionText.substring(1, letterBeforeSelectionText.length) : letterBeforeSelectionText,
+      key,
       type: 'after'
     });
     console.log('xpathSpecKeyWordSub end query:');
@@ -2285,6 +2287,10 @@ xh.Bar.prototype.showBar_ = function() {
             this.prepareShowBar_();
             xh.setRuleMetaTable();
           } else {
+            if (xh.elMsgIns) {
+              xh.elMsgIns.close();
+              xh.elMsgIns = null;
+            }
             xh.setElMessage({
               showClose: true,
               duration: 2000,
@@ -2294,6 +2300,10 @@ xh.Bar.prototype.showBar_ = function() {
           }
         })
         .catch((err) => {
+          if (xh.elMsgIns) {
+            xh.elMsgIns.close();
+            xh.elMsgIns = null;
+          }
           xh.setElMessage({
             showClose: true,
             duration: 2000,
@@ -2628,7 +2638,7 @@ xh.Bar.prototype.mouseClick_ = function (e) {
       flagStop = true;
       break;
     } else if (
-      // * className中有c-hint--wrappe
+      // * className中有需要特殊处理的类名
       domPath[i]
       && domPath[i].className
       && xh.IsIncludeClassNameInSpec(domPath[i].className)
