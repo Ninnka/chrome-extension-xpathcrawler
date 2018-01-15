@@ -93,9 +93,6 @@ xh.elMdDataTableIns = null; // * 修改数据的table容器实例
 xh.currentRuleRowSelected = null; // * 外部保存的选择行 
 xh.currentMetaRowSelected = null; // * 外部保存的选择行
 
-// * 保存当前全局选中的文本（暂时先放着）
-xh.textMouseSelected = '';
-
 /**
  * 测试数据：start
  */
@@ -1027,22 +1024,22 @@ xh.submitData = function () {
   httpLib.submitData(xh.submitCol)
     .then((data) => {
       console.log('httpLib submitData:', data);
+      let msgStatus = {
+        message: '提交成功',
+        type: 'success'
+      };
       if (data.data.code === 0) {
-        xh.setElMessage({
-          message: '提交成功',
-          showClose: true,
-          duration: 2000,
-          type: 'success'
-        });
         xh.previewIns.setDialogVisible(false);
       } else {
-        xh.setElMessage({
-          message: '提交失败',
-          showClose: true,
-          duration: 2000,
-          type: 'error'
-        });
+        msgStatus.message = '提交失败';
+        msgStatus.type = 'error';
       }
+      xh.setElMessage({
+        message: msgStatus.message,
+        type: msgStatus.type,
+        showClose: true,
+        duration: 2000
+      });
     })
     .catch((err) => {
       xh.setElMessage({
@@ -1336,12 +1333,7 @@ xh.confirmSavePath = function (data) {
       showClose: true,
       type: 'success'
     });
-    // xh.createHint('保存成功');
-    // xh.showHint();
-    // xh.closeHintDelay(2000);
   } else {
-    // xh.createHint('已经存在同名的区域，请使用其他名称', 'error');
-    // xh.showHint();
     xh.setElMessage({
       message: '已经存在同名的区域，请使用其他名称',
       duration: 2000,
@@ -1365,8 +1357,6 @@ xh.calcTargetElePos = function (e) {
 xh.calcEleRoundPosAvalid = function () {
   const documentW = window.innerWidth;
   const documentH = window.innerHeight;
-  // console.log('documentW', documentW);
-  // console.log('documentH', documentH);
   const x = xhBarInstance.currElPos.x;
   const y = xhBarInstance.currElPos.y;
   // * 判断上方的位置
@@ -2780,7 +2770,12 @@ xh.Bar.prototype.keyDownExtend_ = function (event) {
       // * 更新显示的结果，获取xpath和css selector
       this.updateQueryAndBar_(this.currEl_);
     } else if (!selectChangeStatus && selectChangeText) {
-      xh.setHint(selectChangeText, 'warning');
+      xh.setElMessage({
+        type: 'warning',
+        message: selectChangeText,
+        showClose: true,
+        duration: 2000
+      });
     }
   } else if (!xh.currElIsSelecting && event.keyCode === xh.X_KEYCODE && altKey && xh.currElIsMove) {
     console.log('快速选择');
@@ -2822,12 +2817,7 @@ xh.Bar.prototype.keyDown_ = function(e) {
 };
 
 xh.Bar.prototype.mouseClick_ = function (e) {
-  console.log('e', e);
-  // * 判断是否有选中的文本
-  let tmpTextSel = window.getSelection();
-  if (tmpTextSel) {
-    xh.textMouseSelected = tmpTextSel;
-  }
+  console.log('mouseClick_ event', e);
   let flagStop = false;
   let domPath = e.path;
   let domPathL = domPath.length;
