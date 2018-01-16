@@ -23,7 +23,10 @@ let httpLib = {};
 httpLib.getPresetRulesData = function () {
   return axiosInstance({
     method: 'get',
-    url: '/rules'
+    url: '/rules',
+    params: {
+      url: window.location.href
+    }
   });
 }
 
