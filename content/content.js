@@ -1017,6 +1017,157 @@ xh.hideMdBaseUrlForm = function () {
 
 // -------------------------------------------------------------
 
+// * 设置调整xpath顺序的窗口
+xh.setOrderAdjustTable = function () {
+  if (!xh.orderAdjustTableIns) {
+    let tmpWrapper = document.createElement('div');
+    tmpWrapper.classList.add('c-order-adjust-table-wrapper');
+    tmpWrapper.id = 'c-order-adjust-table-wrapper';
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(tmpWrapper);
+    xh.createOrderAdjustTable();
+    xh.orderAdjustTableIns.$mount('#c-order-adjust-table-wrapper');
+  } else {
+    xh.showOrderAdjustTable();
+    xh.orderAdjustTableIns.resetDataStatus();
+  }
+};
+
+// * 创建调整xpath顺序的窗口
+xh.createOrderAdjustTable = function () {
+  xh.orderAdjustTableIns = new Vue({
+    data: {
+      dialogTableVisible: true,
+      metaRef: '',
+      xpathData: [],
+      xpathDataCol: [{
+        key: 'index',
+        label: 'order',
+        width: 70
+      }, {
+        key: 'path',
+        label: 'xpath'
+      }]
+    },
+    methods: {
+      setDialogVisible (param) {
+        this.dialogTableVisible = param;
+      },
+      setXpathData (param) {
+        // console.log('setXpathData param:', param);
+        this.metaRef = param.meta;
+        let data = param.data;
+        for (let i = 0; i < data.length; i++) {
+          this.xpathData.push({
+            index: i + 1,
+            path: data[i]
+          });
+        }
+        // console.log('this.xpathData', this.xpathData);
+      },
+      confirmOrderChange () {
+        try {
+          let res = xh.confirmOrderChange({
+            metaRef: this.metaRef,
+            data: this.xpathData
+          });
+          if (res) {
+            this.setDialogVisible(false);
+            xh.setElMessage({
+              message: '调整成功',
+              showClose: true,
+              duration: 2000,
+              type: 'success'
+            });
+          } else {
+            xh.setElMessage({
+              message: '调整失败，排序有误，可能是序号重复或者序号不连贯',
+              showClose: true,
+              duration: 2000,
+              type: 'error'
+            });
+          }
+        } catch (e) {
+          xh.setElMessage({
+            message: '调整失败，原因不明',
+            showClose: true,
+            duration: 2000,
+            type: 'error'
+          });
+        }
+      },
+      resetDataStatus () {
+        this.xpathData = [];
+      },
+      cancelNewXpath () {
+        xh.setElMessage({
+          message: '取消添加',
+          showClose: true,
+          duration: 2000,
+          type: 'error'
+        })
+        this.setDialogVisible(false);
+      }
+    },
+    template: `
+      <div class="order-adjust-table-wrapper" id="order-adjust-table-wrapper">
+        <el-dialog title="" :visible.sync="dialogTableVisible" :close-on-click-modal="false" :close-on-press-escape="false">
+          <el-table ref="orderAdjustTable" :data="xpathData" :max-height="800" highlight-current-row>
+            <el-table-column v-for="col in xpathDataCol" :width="col.width ? col.width : ''" :label="col.label">
+              <template slot-scope="scope">
+                <el-input v-if="col.key === 'index'" v-model="scope.row.index"></el-input>
+                <span v-else>{{ scope.row.path }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <span slot="footer" class="dialog-footer">
+            <el-button type="danger" @click="cancelNewXpath">取消添加</el-button>
+            <el-button type="primary" @click="confirmOrderChange">确认添加</el-button>
+          </span>
+        </el-dialog>
+      </div>
+    `
+  })
+};
+
+// * 显示OrderAdjustTable
+xh.showOrderAdjustTable = function () {
+  xh.orderAdjustTableIns.setDialogVisible(true);
+}
+
+// * 隐藏OrderAdjustTable
+xh.hideOrderAdjustTable = function () {
+  xh.orderAdjustTableIns.setDialogVisible(false);
+}
+
+// * 确认添加排序后的xpath
+xh.confirmOrderChange = function (param) {
+  let metaRef = param.metaRef;
+  let tmpXpaths = [];
+  for (let item of param.data) {
+    if (tmpXpaths[parseInt(item.index) - 1]) {
+      return false;
+    }
+    tmpXpaths[parseInt(item.index) - 1] = item.path;
+  }
+  if (param.data.length !== tmpXpaths.length) {
+    return false;
+  }
+  xh.areaCreated[metaRef].xpath = tmpXpaths;
+  xh.setElMessage({
+    message: '保存成功',
+    duration: 2000,
+    showClose: true,
+    type: 'success'
+  });
+  return true;
+}
+
+
+// -------------------------------------------------------------
+
 // * 预览窗口相关
 
 // * 提交按钮的回调
@@ -1235,7 +1386,7 @@ xh.setSubmitCol = function () {
     let metaCotentItem = xh.currentMetaRowSelected.content[item[0]];
     xh.submitCol.content[item[0]] = {
       path: '',
-      type: metaCotentItem.type,
+      type: 'xpath',
       schema: metaCotentItem
     }
     if (metaCotentItem.type === 'array') {
@@ -1295,8 +1446,49 @@ xh.confirmSavePath = function (data) {
     if (!xh.areaCreated[meta]) {
       xh.areaCreated[meta] = data;
       isSuccess = true;
+      xh.closeCInputBox();
+      xh.clearHighlights();
+      xh.setElMessage({
+        message: '保存成功',
+        duration: 2000,
+        showClose: true,
+        type: 'success'
+      });
+    } else if (xh.areaCreated[meta] && typeof xh.areaCreated[meta].xpath === 'object') {
+      // xh.areaCreated[meta].xpath.push(data.xpath);
+      isSuccess = true;
+      xh.setOrderAdjustTable();
+      xh.orderAdjustTableIns.setXpathData({
+        meta,
+        data: xh.areaCreated[meta].xpath.concat(data.xpath)
+      });
+      xh.closeCInputBox();
+      xh.clearHighlights();
+    } else {
+      xh.setElMessageBox({
+        message: '已有相同的key，是否保存为数组',
+        callback: () => {
+          // xh.areaCreated[meta].xpath = [xh.areaCreated[meta].xpath];
+          // xh.areaCreated[meta].xpath.push(data.xpath);
+          isSuccess = true;
+          xh.closeCInputBox();
+          xh.clearHighlights();
+          xh.setOrderAdjustTable();
+          xh.orderAdjustTableIns.setXpathData({
+            meta,
+            data: [xh.areaCreated[meta].xpath].concat(data.xpath)
+          });
+        },
+        callbackClose: () => {
+          xh.setElMessage({
+            message: '保存失败，存在同名key',
+            duration: 2000,
+            showClose: true,
+            type: 'error'
+          });
+        }
+      });
     }
-    // }
   } else if (action === xh.NEW_AREA && areaNewLimitSetter && areaNewLimit) {
     let data = {
       cssSelector,
@@ -1324,23 +1516,24 @@ xh.confirmSavePath = function (data) {
   console.log('xh.areaCreated');
   console.log(xh.areaCreated);
 
-  if (isSuccess) {
-    xh.closeCInputBox();
-    xh.clearHighlights();
-    xh.setElMessage({
-      message: '保存成功',
-      duration: 2000,
-      showClose: true,
-      type: 'success'
-    });
-  } else {
-    xh.setElMessage({
-      message: '已经存在同名的区域，请使用其他名称',
-      duration: 2000,
-      showClose: true,
-      type: 'error'
-    });
-  }
+  // if (isSuccess) {
+  //   xh.closeCInputBox();
+  //   xh.clearHighlights();
+  //   xh.setElMessage({
+  //     message: '保存成功',
+  //     duration: 2000,
+  //     showClose: true,
+  //     type: 'success'
+  //   });
+  // } 
+  // else {
+  //   xh.setElMessage({
+  //     message: '已经存在同名的区域，请使用其他名称',
+  //     duration: 2000,
+  //     showClose: true,
+  //     type: 'error'
+  //   });
+  // }
 }
 
 // * 计算当前元素的位置
@@ -1401,8 +1594,8 @@ xh.createRuleMetaTable = function () {
       handleMetaChange (row) {
         this.currentMetaRowSelected = row;
       },
-      transformMetaContent (scope) {
-        let arr = Object.keys(scope.row);
+      transformMetaContent (content) {
+        let arr = Object.keys(content);
         return arr.join(', ');
       },
       setDialogVisible (param) {
@@ -1495,7 +1688,7 @@ xh.createRuleMetaTable = function () {
             <el-table-column property="description" label="说明"></el-table-column>
             <el-table-column property="content" label="内容" show-overflow-tooltip>
               <template slot-scope="scope">
-                <div>{{ transformMetaContent(scope) }}</div>
+                <div>{{ transformMetaContent(scope.row.content) }}</div>
               </template>
             </el-table-column>
           </el-table>
@@ -2271,6 +2464,7 @@ xh.setElMessageBox = function (param) {
         instance.confirmButtonLoading = false;
         done();
       } else {
+        param.callbackClose && param.callbackClose();
         done();
       }
     }
@@ -2286,7 +2480,9 @@ xh.specClassNameList = [
   'c-el-table-wrapper',
   'el-message',
   'c-md-data-table-wrappe',
-  'c-base-url-form'
+  'c-base-url-form',
+  'order-adjust-table-wrapper',
+  'c-order-adjust-table-wrapper'
 ];
 
 // * 包含白名单中的类名
@@ -2430,6 +2626,9 @@ xh.Bar.prototype.showBar_ = function() {
   }
   // window.setTimeout(impl, 0);
   window.setTimeout(() => {
+    this.prepareShowBar_();
+    xh.setRuleMetaTable();
+    return;
     if (xh.FIRST_OPEN) {
       if (!xh.elMsgIns) {
         xh.setElMessage({
