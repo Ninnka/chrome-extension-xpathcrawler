@@ -1588,6 +1588,10 @@ xh.createRuleMetaTable = function () {
     methods: {
       // resetDataStatus () {
       // },
+      setPresetData () {
+        this.ruleData = xh.presetData.rules;
+        this.metaData = xh.presetData.metas;
+      },
       handleRuleChange (row) {
         this.currentRuleRowSelected = row;
       },
@@ -1716,6 +1720,7 @@ xh.setRuleMetaTable = function () {
     xh.elRuleMetaTableIns.$mount('#elRuleMetaTableWrapper');
   } else {
     xh.showRuleMetaTableWrapper();
+    xh.elRuleMetaTableIns.setPresetData();
   }
 }
 
@@ -2615,20 +2620,12 @@ xh.Bar.prototype.prepareShowBar_ = function () {
 
 // * 开启功能
 xh.Bar.prototype.showBar_ = function() {
-  // var that = this;
-  // function impl() {
-    
-  // }
-  // ! 判断bar.html是否在DOM里
+  // ! 判断bar.html是否在DOM里（已废弃）
   if (!this.inDOM_) {
     this.inDOM_ = true;
     // document.body.appendChild(this.barFrame_);
   }
-  // window.setTimeout(impl, 0);
   window.setTimeout(() => {
-    this.prepareShowBar_();
-    xh.setRuleMetaTable();
-    return;
     if (xh.FIRST_OPEN) {
       if (!xh.elMsgIns) {
         xh.setElMessage({
@@ -2835,13 +2832,75 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
       this.openModifyDataDialog();
       break;
     case 'openModufyBaseUrlDialog':
-      console.log('openModufyBaseUrlDialog');
       this.openModufyBaseUrlDialog();
       break;
+    case 'getPresetDataOnly':
+      this.getPresetDataOnly();
     default:
       break;
   }
 };
+
+// * 单独获取预设的rule和meta数据
+xh.Bar.prototype.getPresetDataOnly = function () {
+  if (!xh.elMsgIns) {
+    xh.setElMessage({
+      showClose: true,
+      duration: 0,
+      type: 'info',
+      message: '获取数据中'
+    });
+  }
+  let getRulesDataPM = httpLib.getPresetRulesData();
+  let getMetasDataPM = httpLib.getPresetMetasData();
+  
+  Promise.all([getRulesDataPM, getMetasDataPM])
+    .then((data) => {
+      console.log('getPresetData:', data);
+      if (
+        data[0] && data[1]
+        && data[0].data && data[0].data.code === 0
+        && data[1].data && data[1].data.code === 0
+      ) {
+        if (xh.elMsgIns) {
+          xh.elMsgIns.close();
+          xh.elMsgIns = null;
+        }
+        xh.setElMessage({
+          showClose: true,
+          duration: 2000,
+          type: 'success',
+          message: '数据更新成功'
+        });
+        xh.presetData.rules = data[0].data.data ? data[0].data.data : [];
+        xh.presetData.metas = data[1].data.data ? data[1].data.data : [];
+      } else {
+        if (xh.elMsgIns) {
+          xh.elMsgIns.close();
+          xh.elMsgIns = null;
+        }
+        xh.setElMessage({
+          showClose: true,
+          duration: 2000,
+          type: 'error',
+          message: '数据更新失败'
+        });
+      }
+    })
+    .catch((err) => {
+      if (xh.elMsgIns) {
+        xh.elMsgIns.close();
+        xh.elMsgIns = null;
+      }
+      xh.setElMessage({
+        showClose: true,
+        duration: 2000,
+        type: 'error',
+        message: '数据更新失败'
+      });
+      console.log('getPresetData all err', err);
+    });
+}
 
 // * 预览css selector合集
 xh.Bar.prototype.previewCssRuleCol = function () {

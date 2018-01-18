@@ -16,7 +16,8 @@ const typeList = {
   getStatus: 'getStatus',
   openTableDialog: 'openTableDialog',
   openModifyDataDialog: 'openModifyDataDialog',
-  openModufyBaseUrlDialog: 'openModufyBaseUrlDialog'
+  openModufyBaseUrlDialog: 'openModufyBaseUrlDialog',
+  getPresetDataOnly: 'getPresetDataOnly'
 }
 
 // 监听是否开启或关闭状态
@@ -93,6 +94,11 @@ function openModufyBaseUrlDialog () {
   sendMessage_(typeList.openModufyBaseUrlDialog);
 }
 
+// * 单独获取数据
+function getPresetDataOnly () {
+  sendMessage_(typeList.getPresetDataOnly);
+}
+
 // 为按钮添加点击事件
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('submit').addEventListener('click', messageBox);
@@ -101,4 +107,5 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('#selectRule').addEventListener('click', openTableDialog);
   document.querySelector('#modifyData').addEventListener('click', openModifyDataDialog);
   document.querySelector('#modifyBaseUrl').addEventListener('click', openModufyBaseUrlDialog);
+  document.querySelector('#getPresetDataOnly').addEventListener('click', getPresetDataOnly);
 });
