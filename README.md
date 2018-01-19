@@ -31,6 +31,8 @@
 - [x] 允许设置同名的key值
   - [x] 同名的key值的情况下，xpath会被组合成数组，添加时允许对数组内的成员进行位置调动
 - [x] 上传的数据结构中的key值对应的type目前都为xpath（以后可能会有css-seletor）
+- [x] 输入弹窗内修改xpath（严格和模糊）时，可以看到不同的高亮预览
+- [x] 简化xpath，减少xpath长度
 
 ## Functions-Deprecated（Tmp）
 

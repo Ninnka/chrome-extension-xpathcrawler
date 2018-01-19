@@ -1,22 +1,6 @@
 /**
- * Copyright 2011 Google Inc. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/**
- * @author opensource@google.com
- * @license Apache License, Version 2.0.
+ * @author hennzr@gmail.com
+ * Based on opensource@google.com xpaf-crx project
  */
 
 'use strict';
@@ -24,7 +8,6 @@
 // * 扩展的命名空间：xh.
 var xh = xh || {};
 
-////////////////////////////////////////////////////////////
 // * 函数及常量、变量
 
 xh.FIRST_OPEN = true;
@@ -796,9 +779,25 @@ xh.cssClassOptimization = function (className) {
   return classArr[0];
 }
 
+// * 普通版遍历高亮
 xh.highlight = function(els) {
   for (var i = 0, l = els.length; i < l; i++) {
     els[i].classList.add('xh-highlight');
+  }
+};
+
+// * strict xpath compare遍历高亮
+xh.highlightStrictCompare = function(els) {
+  for (var i = 0, l = els.length; i < l; i++) {
+    console.log('els[i]', els[i]);
+    els[i].classList.add('xh-lightlight-compare-strict');
+  }
+};
+
+// * fuzzy xpath compare遍历高亮
+xh.highlightFuzzyCompare = function(els) {
+  for (var i = 0, l = els.length; i < l; i++) {
+    els[i].classList.add('xh-lightlight-compare-fuzzy');
   }
 };
 
@@ -930,6 +929,20 @@ xh.clearHighlights = function () {
   var els = document.querySelectorAll('.xh-highlight');
   for (var i = 0, l = els.length; i < l; i++) {
     els[i].classList.remove('xh-highlight');
+  }
+};
+
+xh.clearHighlightsStrictCompare = function () {
+  var els = document.querySelectorAll('.xh-lightlight-compare-strict');
+  for (var i = 0, l = els.length; i < l; i++) {
+    els[i].classList.remove('xh-lightlight-compare-strict');
+  }
+};
+
+xh.clearHighlightsFuzzyCompare = function () {
+  var els = document.querySelectorAll('.xh-lightlight-compare-fuzzy');
+  for (var i = 0, l = els.length; i < l; i++) {
+    els[i].classList.remove('xh-lightlight-compare-fuzzy');
   }
 };
 
@@ -1390,9 +1403,9 @@ xh.setSubmitCol = function () {
       schema: metaCotentItem
     }
     if (metaCotentItem.type === 'array') {
-      xh.submitCol.content[item[0]].path = item[1].xpathFuzzy;
+      xh.submitCol.content[item[0]].path = xh.xpathOptimization(item[1].xpathFuzzy);
     } else {
-      xh.submitCol.content[item[0]].path = item[1].xpath;
+      xh.submitCol.content[item[0]].path = xh.xpathOptimization(item[1].xpath);
     }
     if (!xh.submitCol.metaContent[item[0]]) {
       xh.submitCol.metaContent[item[0]] = metaCotentItem;
@@ -1838,6 +1851,35 @@ xh.hideMdDataTableWrapper = function () {
   
 // }
 
+// * 优化调整xpath，简化xpath，替换分隔符
+xh.xpathOptimization = function (xpath) {
+  // * 简化xpath
+  xpath = xpath.replace(/(^~\/~)|(~\/~$)/g, '');
+  let xpathItemList = xpath.split('~/~');
+  let xpathItemListLen = xpathItemList.length;
+  let idPos = '';
+  for (let i = xpathItemListLen - 1; i >= 0; i--) {
+    if (
+      i !== xpathItemListLen - 1
+      && i !== 0
+      && xpathItemList[i].indexOf('id') === -1
+      && xpathItemList[i].indexOf('class') === -1
+      && xpathItemList[i].indexOf('img') === -1
+      && xpathItemList[i].indexOf('@src') === -1
+    ) {
+      xpathItemList[i] = '';
+    }
+    if (xpathItemList[i].indexOf('id') !== -1) {
+      idPos = i;
+      break;
+    }
+  }
+  if (idPos !== '') {
+    xpathItemList = xpathItemList.splice(idPos);
+  }
+  return xpathItemList.join('/');
+}
+
 // * 字符键白名单
 xh.keyDownKeyWhiteList = [
   'Backspace',
@@ -2011,9 +2053,13 @@ xh.createInputBoxIns = function () {
       },
       cancelInputBox (event) {
         event.stopPropagation();
+        xh.clearHighlightsStrictCompare();
+        xh.clearHighlightsFuzzyCompare();
         xh.cancelInputBox();
       },
       confirmSavePath () {
+        xh.clearHighlightsStrictCompare();
+        xh.clearHighlightsFuzzyCompare();
         // * 判断meta是否合法，如果空则提示
         if (!this.presetMeta) {
           xh.setElMessage({
@@ -2024,6 +2070,8 @@ xh.createInputBoxIns = function () {
           });
           return;
         }
+        xhBarInstance.query_ = this.xpath;
+        xhBarInstance.queryFuzzy_ = this.xpathFuzzy;
         xh.confirmSavePath({
           meta: this.presetMeta,
           action: this.radioArea,
@@ -2087,10 +2135,30 @@ xh.createInputBoxIns = function () {
     },
     watch: {
       xpath (newValue, oldValue) {
-        xhBarInstance.query_ = newValue;
+        // xhBarInstance.query_ = newValue;
+        if (xhBarInstance.query_ !== newValue) {
+          xh.clearHighlightsStrictCompare();
+          try {
+            let xpathResult = document.evaluate(newValue.replace(/~\/~/g, '/'), document.body, null, XPathResult.ANY_TYPE, null);
+            let node = xpathResult.iterateNext();
+            xh.highlightStrictCompare([node]);
+          } catch (e) {
+            console.log('非法xpath');
+          }
+        }
       },
       xpathFuzzy (newValue, oldValue) {
-        xhBarInstance.queryFuzzy_ = newValue;
+        // xhBarInstance.queryFuzzy_ = newValue;
+        if (xhBarInstance.queryFuzzy_ !== newValue) {
+          xh.clearHighlightsFuzzyCompare();
+          try {
+            let xpathResult = document.evaluate(newValue.replace(/~\/~/g, '/'), document.body, null, XPathResult.ANY_TYPE, null);
+            let node = xpathResult.iterateNext();
+            xh.highlightFuzzyCompare([node]);
+          } catch (e) {
+            console.log('非法xpath');
+          }
+        }
       },
       presetMeta (newValue, oldValue) {
         console.log('newValue', newValue);
@@ -2288,7 +2356,7 @@ xh.evaluateQuery = function(query) {
   var toHighlight = [];
 
   try {
-    xpathResult = document.evaluate(query, document.body, null,
+    xpathResult = document.evaluate(query.replace(/~\/~/g, '/'), document.body, null,
                                     XPathResult.ANY_TYPE, null);
     console.log('xpathResult', xpathResult);
   } catch (e) {
@@ -2524,7 +2592,6 @@ xh.Bar = function () {
   // * this绑定点击方法
   this.boundMouseClick = this.mouseClick_.bind(this);
 
-  this.inDOM_ = false;
   this.currEl_ = null;
   this.currElPos = null;
   this.popupPos = null;
@@ -2570,12 +2637,14 @@ xh.Bar.prototype.updateQueryAndBar_ = function(el) {
   this.queryNewSpeFuzzy_ = queryObj ? queryObj.queryFuzzy : '';
 
   // * 保存xpath严格模式
-  this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
+  // this.query_ = this.queryNewSpe_.replace(/~\/~/g, '/');
+  this.query_ = this.queryNewSpe_;
   console.log('query_:');
   console.log(this.query_);
 
   // * 保存xpath严格模式
-  this.queryFuzzy_ = this.queryNewSpeFuzzy_.replace(/~\/~/g, '/');
+  // this.queryFuzzy_ = this.queryNewSpeFuzzy_.replace(/~\/~/g, '/');
+  this.queryFuzzy_ = this.queryNewSpeFuzzy_;
   console.log('queryFuzzy_:');
   console.log(this.queryFuzzy_);
 
@@ -2620,11 +2689,6 @@ xh.Bar.prototype.prepareShowBar_ = function () {
 
 // * 开启功能
 xh.Bar.prototype.showBar_ = function() {
-  // ! 判断bar.html是否在DOM里（已废弃）
-  if (!this.inDOM_) {
-    this.inDOM_ = true;
-    // document.body.appendChild(this.barFrame_);
-  }
   window.setTimeout(() => {
     if (xh.FIRST_OPEN) {
       if (!xh.elMsgIns) {

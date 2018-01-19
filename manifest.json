@@ -29,5 +29,5 @@
    "name": "XPath Helper",
    "update_url": "https://clients2.google.com/service/update2/crx",
    "version": "2.0.2",
-   "web_accessible_resources": [ "bar.css", "bar.html", "bar.js" ]
+   "web_accessible_resources": []
 }

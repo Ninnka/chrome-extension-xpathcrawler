@@ -1,3 +1,8 @@
+/**
+ * @author hennzr@gmail.com
+ * Based on opensource@google.com xpaf-crx project
+ */
+
 // * 创建axios实例
 let axiosInstance = axios.create({
   params: {},
