@@ -14,7 +14,9 @@ const typeList = {
   openTableDialog: 'openTableDialog',
   openModifyDataDialog: 'openModifyDataDialog',
   openModufyBaseUrlDialog: 'openModufyBaseUrlDialog',
-  getPresetDataOnly: 'getPresetDataOnly'
+  getPresetDataOnly: 'getPresetDataOnly',
+  needPresetData: 'needPresetData',
+  needlessPresetData: 'needlessPresetData'
 }
 
 // 监听是否开启或关闭状态
@@ -55,7 +57,7 @@ function runtimeSendMsg(type) {
 
 // 监听事件
 function switchEventHandle(mess) {
-  console.log(mess.type);
+  console.log(mess);
   switch (mess.type) {
     case 'reponseStatus':
       changeStatus(mess.status);
@@ -96,6 +98,13 @@ function getPresetDataOnly () {
   sendMessage_(typeList.getPresetDataOnly);
 }
 
+function needPresetData () {
+  sendMessage_(typeList.needPresetData);
+}
+function needlessPresetData () {
+  sendMessage_(typeList.needlessPresetData);
+}
+
 // 为按钮添加点击事件
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('submit').addEventListener('click', messageBox);
@@ -105,4 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('#modifyData').addEventListener('click', openModifyDataDialog);
   document.querySelector('#modifyBaseUrl').addEventListener('click', openModufyBaseUrlDialog);
   document.querySelector('#getPresetDataOnly').addEventListener('click', getPresetDataOnly);
+  document.querySelector('#needPresetData').addEventListener('click', needPresetData);
+  document.querySelector('#needlessPresetData').addEventListener('click', needlessPresetData);
 });
