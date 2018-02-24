@@ -11,7 +11,7 @@
    },
    "content_scripts": [ {
       "css": ["utils/element-ui/index.css", "content/content.css" ],
-      "js": [ "utils/vue.js", "utils/element-ui/index.js", "utils/qs.min.js", "utils/axios.min.js", "content/content-prepare.js", "content/content.js" ],
+      "js": [ "utils/vue.js", "utils/element-ui/index.js", "utils/qs.min.js", "utils/axios.min.js", "utils/react.js" , "utils/react-dom.js", "utils/react-json-view.min.js", "content/content-prepare.js", "content/content.js" ],
       "matches": [ "\u003Call_urls>" ]
    } ],
    "description": "Extract, edit, and evaluate XPath queries with ease.",
