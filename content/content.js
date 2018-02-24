@@ -76,6 +76,13 @@ xh.elMdDataTableIns = null; // * 修改数据的table容器实例
 xh.currentRuleRowSelected = null; // * 外部保存的选择行 
 xh.currentMetaRowSelected = null; // * 外部保存的选择行
 
+// * 是否需要从后台获取特定的预设数据
+/**
+ * true 不需要获取
+ * false 需要获取
+ */
+xh.needlessPresetData = true;
+
 /**
  * 测试数据：start
  */
@@ -1885,6 +1892,11 @@ xh.xpathOptimization = function (xpath) {
   return res;
 }
 
+// * 创建nextTick
+xh.nextTick = (func) => {
+  Promise.resolve().then(func);
+}
+
 // * 字符键白名单
 xh.keyDownKeyWhiteList = [
   'Backspace',
@@ -1938,6 +1950,8 @@ xh.closeCInputBox = function () {
 // * 打开弹窗
 xh.openCInputBox = function () {
   xh.divTmpWrapper && (xh.divTmpWrapper.style.display = 'block');
+  xh.inputBoxIns.isLoadOrReLoadStrict = true;
+  xh.inputBoxIns.isLoadOrReLoadFuzzy = true;
 }
 
 // * 取消按钮的回调事件
@@ -1981,6 +1995,8 @@ xh.bindInputBoxTouchEvent = function () {
 xh.createInputBoxIns = function () {
   xh.inputBoxIns = new Vue({
     data: {
+      isLoadOrReLoadStrict: true,
+      isLoadOrReLoadFuzzy: true,
       posiStyleOrigin: {
         transform: 'translateZ(3px) translateX(-50%) translateY(-50%)'
       },
@@ -2141,7 +2157,9 @@ xh.createInputBoxIns = function () {
     watch: {
       xpath (newValue, oldValue) {
         // xhBarInstance.query_ = newValue;
-        if (xhBarInstance.query_ !== newValue) {
+        if (this.isLoadOrReLoadStrict) {
+          this.isLoadOrReLoadStrict = false;
+        } else if (xhBarInstance.query_ !== newValue && !this.isLoadOrReLoadStrict) {
           xh.clearHighlightsStrictCompare();
           try {
             let xpathResult = document.evaluate(newValue.replace(/~\/~/g, '/'), document.body, null, XPathResult.ANY_TYPE, null);
@@ -2154,7 +2172,9 @@ xh.createInputBoxIns = function () {
       },
       xpathFuzzy (newValue, oldValue) {
         // xhBarInstance.queryFuzzy_ = newValue;
-        if (xhBarInstance.queryFuzzy_ !== newValue) {
+        if (this.isLoadOrReLoadFuzzy) {
+          this.isLoadOrReLoadFuzzy = false;
+        } else if (xhBarInstance.queryFuzzy_ !== newValue && !this.isLoadOrReLoadFuzzy) {
           xh.clearHighlightsFuzzyCompare();
           try {
             let xpathResult = document.evaluate(newValue.replace(/~\/~/g, '/'), document.body, null, XPathResult.ANY_TYPE, null);
@@ -2291,6 +2311,8 @@ xh.fixingPopup = function (toggle, param) {
       xh.inputBoxIns.$mount('#c-input-box-ins-outcontainer');
       // * 绑定移动事件
       xh.bindInputBoxTouchEvent();
+      xh.inputBoxIns.isLoadOrReLoadStrict = true;
+      xh.inputBoxIns.isLoadOrReLoadFuzzy = true;
     } else {
       xh.inputBoxIns.resetDataStatus();
       xh.openCInputBox();
@@ -2694,7 +2716,12 @@ xh.Bar.prototype.prepareShowBar_ = function () {
 
 // * 开启功能
 xh.Bar.prototype.showBar_ = function() {
-  window.setTimeout(() => {
+  if (xh.needlessPresetData) {
+    this.prepareShowBar_();
+    xh.setRuleMetaTable();
+    return;
+  }
+  xh.nextTick(() => {
     if (xh.FIRST_OPEN) {
       if (!xh.elMsgIns) {
         xh.setElMessage({
@@ -2761,7 +2788,7 @@ xh.Bar.prototype.showBar_ = function() {
       this.prepareShowBar_();
       xh.setRuleMetaTable();
     }
-  }, 0);
+  });
 };
 
 // * 关闭功能
@@ -2905,6 +2932,13 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
       break;
     case 'getPresetDataOnly':
       this.getPresetDataOnly();
+      break;
+    case 'needlessPresetData':
+      this.setNeedlessPresetData();
+      break;
+    case 'needPresetData':
+      this.setNeedPresetData();
+      break;
     default:
       break;
   }
@@ -2969,6 +3003,26 @@ xh.Bar.prototype.getPresetDataOnly = function () {
       });
       console.log('getPresetData all err', err);
     });
+}
+
+// * 设置是否需要获取数据
+xh.Bar.prototype.setNeedlessPresetData = function () {
+  xh.needlessPresetData = true;
+  xh.setElMessage({
+    showClose: true,
+    duration: 1500,
+    type: 'success',
+    message: '设置成功'
+  });
+}
+xh.Bar.prototype.setNeedPresetData = function () {
+  xh.needlessPresetData = false;
+  xh.setElMessage({
+    showClose: true,
+    duration: 1500,
+    type: 'success',
+    message: '设置成功'
+  });
 }
 
 // * 预览css selector合集
