@@ -801,7 +801,7 @@ xh.highlightFuzzyCompare = function(els) {
   }
 };
 
-// * 转为xpath为css规则
+// * 转为xpath为css规则(无用)
 xh.xpathToCssRule = function (query) {
   var queryArr = query.split('~/~'); // * 使用新的分隔符
   var newQuery = '';
@@ -1403,9 +1403,11 @@ xh.setSubmitCol = function () {
       schema: metaCotentItem
     }
     if (metaCotentItem.type === 'array') {
-      xh.submitCol.content[item[0]].path = xh.xpathOptimization(item[1].xpathFuzzy);
+      // xh.submitCol.content[item[0]].path = xh.xpathOptimization(item[1].xpathFuzzy);
+      xh.submitCol.content[item[0]].path = item[1].xpathFuzzy;
     } else {
-      xh.submitCol.content[item[0]].path = xh.xpathOptimization(item[1].xpath);
+      // xh.submitCol.content[item[0]].path = xh.xpathOptimization(item[1].xpath);
+      xh.submitCol.content[item[0]].path = item[1].xpath;
     }
     if (!xh.submitCol.metaContent[item[0]]) {
       xh.submitCol.metaContent[item[0]] = metaCotentItem;
@@ -1855,6 +1857,7 @@ xh.hideMdDataTableWrapper = function () {
 xh.xpathOptimization = function (xpath) {
   // * 简化xpath
   xpath = xpath.replace(/(^~\/~)|(~\/~$)/g, '');
+  console.log('xpathOptimization before: ', xpath);
   let xpathItemList = xpath.split('~/~');
   let xpathItemListLen = xpathItemList.length;
   let idPos = '';
@@ -1877,7 +1880,9 @@ xh.xpathOptimization = function (xpath) {
   if (idPos !== '') {
     xpathItemList = xpathItemList.splice(idPos);
   }
-  return xpathItemList.join('/');
+  let res = '//' + xpathItemList.join('/');
+  console.log('xpathOptimization after: ', res);
+  return res;
 }
 
 // * 字符键白名单
@@ -2003,8 +2008,8 @@ xh.createInputBoxIns = function () {
       IATitleType: 'IATitlePreset',
       levelLimit: xh.LEVEL_LIMIT,
       currentRuleMeta: [],
-      xpath: xhBarInstance.query_,
-      xpathFuzzy: xhBarInstance.queryFuzzy_,
+      xpath: xh.xpathOptimization(xhBarInstance.query_),
+      xpathFuzzy: xh.xpathOptimization(xhBarInstance.queryFuzzy_),
       typeByPresetMeta: ''
     },
     methods: {
@@ -2023,8 +2028,8 @@ xh.createInputBoxIns = function () {
         this.IATitleType = 'IATitlePreset';
         this.areaNewLimitSetter = '';
         this.levelLimit = xh.LEVEL_LIMIT;
-        this.xpath = xhBarInstance.query_;
-        this.xpathFuzzy = xhBarInstance.queryFuzzy_;
+        this.xpath = xh.xpathOptimization(xhBarInstance.query_);
+        this.xpathFuzzy = xh.xpathOptimization(xhBarInstance.queryFuzzy_);
         this.typeByPresetMeta = '';
         this.setpresetMetaDefault();
         this.setAreaNewLimitDefault();
