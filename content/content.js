@@ -83,6 +83,11 @@ xh.currentMetaRowSelected = null; // * 外部保存的选择行
  */
 xh.needlessPresetData = true;
 
+xh.modifyContentWrapper = null; // * react-json-view的实例容器
+xh.reactJsonViewIns = null; // * react-json-view的实例
+
+xh.tmpUpdatedSrc = null;
+
 /**
  * 测试数据：start
  */
@@ -917,21 +922,6 @@ xh.keyList = [
   'class'
 ];
 
-xh.addPrevent = (event) => {
-  // event.preventDefault();
-  if (event.target.tagName === 'A') {
-    event.preventDefault();
-  }
-}
-
-// xh.preventHref = () => {
-  // document.addEventListener('click', xh.addPrevent);
-// }
-
-// xh.unPreventHref = () => {
-  // document.removeEventListener('click', xh.addPrevent);
-// }
-
 xh.clearHighlights = function () {
   var els = document.querySelectorAll('.xh-highlight');
   for (var i = 0, l = els.length; i < l; i++) {
@@ -959,6 +949,94 @@ xh.clearHighlightsFuzzyCompare = function () {
 xh.mdDataRequest = function () {
   xh.setSubmitCol();
   xh.setMdDataTable();
+}
+
+// -------------------------------------------------------------
+
+// * 修改内容相关
+xh.setModifyContentModal = function () {
+  xh.setSubmitCol();
+  if (xh.reactJsonViewIns) {
+    xh.showModifyContentModal();
+    xh.reactRenderIns.setState({
+      src: xh.submitCol
+    });
+  } else {
+    xh.modifyContentWrapper = document.createElement('div');
+    xh.modifyContentWrapper.classList.add('c-modify-content-modal-wrapper');
+    xh.modifyContentWrapper.id = 'c-modify-content-modal-wrapper';
+    let tmpContentLayer = document.createElement('div');
+    tmpContentLayer.id = 'c-modify-content-modal';
+    tmpContentLayer.classList.add('c-modify-content-modal');
+    const tmpContentLayerHeader = `
+      <div class="content-layer--header">
+        <div id="close-btn-layer--header" class="close-btn-layer--header">
+          <span id="close-btn-main" class="close-btn-main">X</span>
+        </div>
+        <div id="c-modify-content-main" class="c-modify-content-main"></div>
+        <div id="sure-btn-layer--header" class="sure-btn-layer--header">确认</div>
+      </div>
+    `
+    tmpContentLayer.innerHTML = tmpContentLayerHeader;
+    xh.modifyContentWrapper.appendChild(tmpContentLayer);
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(xh.modifyContentWrapper);
+    // * 绑定关闭按钮事件
+    document.querySelector('#close-btn-main').addEventListener('click', (e) => {
+      e.stopPropagation();
+      xh.hideModifyContentModal();
+    });
+    // * 绑定确认按钮事件
+    document.querySelector('#sure-btn-layer--header').addEventListener('click', (e) => {
+      e.stopPropagation();
+      xh.confirmModifyContentData();
+    });
+    xh.createModifyContentModal();
+    console.log('xh.reactJsonViewIns', xh.reactJsonViewIns);
+  }
+}
+
+xh.createModifyContentModal = function () {
+  xh.reactJsonViewIns = React.createElement(reactJsonView.default, {
+    src: xh.submitCol,
+    collapseStringsAfterLength: 18,
+    onEdit: (edit) => {
+      console.log('edit', edit);
+      xh.tmpUpdatedSrc = edit.updated_src;
+      return true;
+    },
+    onDelete: (del) => {
+      console.log('del', del);
+      xh.tmpUpdatedSrc = del.updated_src;
+      return true;
+    }
+  });
+
+  React && ReactDOM && (xh.reactRenderIns = ReactDOM.render(
+    xh.reactJsonViewIns,
+    document.getElementById('c-modify-content-main')
+  ));
+  console.log('xh.reactRenderIns', xh.reactRenderIns);
+}
+
+xh.showModifyContentModal = function () {
+  if (xh.reactJsonViewIns) {
+    xh.modifyContentWrapper.style.display = 'flex';
+  }
+}
+
+xh.hideModifyContentModal = function () {
+  if (xh.reactJsonViewIns) {
+    xh.modifyContentWrapper.style.display = 'none';
+  }
+}
+
+xh.confirmModifyContentData = function () {
+  xh.submitCol = xh.tmpUpdatedSrc;
+  console.log('confirmModifyContentData', xh.submitCol);
+  xh.hideModifyContentModal();
 }
 
 // -------------------------------------------------------------
@@ -1976,12 +2054,9 @@ xh.bindInputBoxTouchEvent = function () {
     xh.inputBoxIns.isClickMoveArea = true;
   });
   document.addEventListener('mousemove', (e) => {
-    // e.preventDefault();
     if (xh.inputBoxIns.isClickMoveArea) {
       xh.inputBoxIns.posiLeft = e.clientX - mouseOffsetX;
       xh.inputBoxIns.posiTop = e.clientY - mouseOffsetY;
-      // console.log('xh.inputBoxIns.posiLeft', xh.inputBoxIns.posiLeft);
-      // console.log('xh.inputBoxIns.posiTop', xh.inputBoxIns.posiTop);
       xh.inputBoxIns.hasMove = true;
     }
   });
@@ -2582,13 +2657,14 @@ xh.specClassNameList = [
   'c-md-data-table-wrappe',
   'c-base-url-form',
   'order-adjust-table-wrapper',
-  'c-order-adjust-table-wrapper'
+  'c-order-adjust-table-wrapper',
+  'c-modify-content-modal-wrapper'
 ];
 
 // * 包含白名单中的类名
 xh.IsIncludeClassNameInSpec = function (className) {
   for (let cn of xh.specClassNameList) {
-    if (className.indexOf(cn) !== -1) {
+    if (className && typeof className === 'string' && className.indexOf(cn) !== -1) {
       return true;
     }
   }
@@ -2599,7 +2675,7 @@ xh.IsIncludeClassNameInSpec = function (className) {
 // * 不包含白名单中的类名
 xh.IsEncludeClassNameInSpec = function (className) {
   for (let cn of xh.specClassNameList) {
-    if (className.indexOf(cn) !== -1) {
+    if (className && typeof className === 'string' && className.indexOf(cn) !== -1) {
       return false;
     }
   }
@@ -2939,6 +3015,9 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     case 'needPresetData':
       this.setNeedPresetData();
       break;
+    case 'modifyContent':
+      this.openModifyContentDialog();
+      break;
     default:
       break;
   }
@@ -3081,6 +3160,11 @@ xh.Bar.prototype.openModifyDataDialog = function () {
       showClose: true
     });
   }
+}
+
+// * 打开修改数据内容的modal
+xh.Bar.prototype.openModifyContentDialog = function () {
+  xh.setModifyContentModal();
 }
 
 // * 打开修改服务器地址的form dialog

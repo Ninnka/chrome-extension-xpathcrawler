@@ -291,6 +291,64 @@ img.xh-highlight {
   z-index: 99999 !important;
 }
 
+/* 修改内容窗口 */
+.c-modify-content-modal-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(50, 50, 50, .5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* .react-json-view {
+  height: 600px;
+  width: 600px;
+  box-sizing: border-box;
+  padding: 24px;
+  background-color: #fbfbfb;
+  overflow: auto;
+} */
+.c-modify-content-modal {
+  /* height: 600px;
+  width: 600px; */
+  /* box-sizing: border-box; */
+  background-color: #fbfbfb;
+  overflow: auto;
+}
+.c-modify-content-main {
+  height: 700px;
+  width: 700px;
+  padding: 0 24px;
+}
+.close-btn-layer--header {
+  height: 40px;
+  position: relative;
+  margin-bottom: 16px;
+}
+.close-btn-main {
+  position: absolute;
+  right: 16px;
+  cursor: pointer;
+  font-size: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #333333;
+}
+.sure-btn-layer--header {
+  margin:  16px auto;
+  width: 100px;
+  border-radius: 5px;
+  height: 36px;
+  color: #ffffff;
+  line-height: 36px;
+  text-align: center;
+  background-color: #409eff;
+  cursor: pointer;
+}
+
 /* 帮助类 */
 .c-flex-row {
   display: flex;

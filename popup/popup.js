@@ -16,7 +16,8 @@ const typeList = {
   openModufyBaseUrlDialog: 'openModufyBaseUrlDialog',
   getPresetDataOnly: 'getPresetDataOnly',
   needPresetData: 'needPresetData',
-  needlessPresetData: 'needlessPresetData'
+  needlessPresetData: 'needlessPresetData',
+  modifyContent: 'modifyContent'
 }
 
 // 监听是否开启或关闭状态
@@ -105,6 +106,11 @@ function needlessPresetData () {
   sendMessage_(typeList.needlessPresetData);
 }
 
+// * 修改数据的内容
+function modifyContent () {
+  sendMessage_(typeList.modifyContent);
+}
+
 // 为按钮添加点击事件
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('submit').addEventListener('click', messageBox);
@@ -116,4 +122,5 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('#getPresetDataOnly').addEventListener('click', getPresetDataOnly);
   document.querySelector('#needPresetData').addEventListener('click', needPresetData);
   document.querySelector('#needlessPresetData').addEventListener('click', needlessPresetData);
+  document.querySelector('#modifyContent').addEventListener('click', modifyContent);
 });
