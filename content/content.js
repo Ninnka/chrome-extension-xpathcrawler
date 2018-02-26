@@ -1009,8 +1009,32 @@ xh.createModifyContentModal = function () {
     },
     onDelete: (del) => {
       console.log('del', del);
-      xh.tmpUpdatedSrc = del.updated_src;
-      return true;
+      if (
+        del.namespace.length === 1 &&
+        (del.namespace[0] === 'content' || del.namespace[0] === 'metaContent')
+      ) {
+        // * 删除的是content下的直接子属性或者是metaContent下的直接子属性
+        xh.tmpUpdatedSrc = del.updated_src;
+        delete xh.tmpUpdatedSrc.metaContent[del.name];
+        delete xh.areaCreated[del.name];
+        xh.reactRenderIns.setState({
+          src: xh.tmpUpdatedSrc
+        }, () => {
+          xh.setElMessage({
+            message: '删除成功',
+            type: 'success',
+            duration: 2000
+          });
+        });
+        return true;
+      } else {
+        xh.setElMessage({
+          message: '只可以删除content下的直接子属性或者是metaContent下的直接子属性',
+          type: 'warning',
+          duration: 2000
+        });
+        return false;
+      }
     }
   });
 
@@ -1498,6 +1522,9 @@ xh.setSubmitCol = function () {
       xh.submitCol.metaContent[item[0]] = metaCotentItem;
     }
   }
+  // * 合并修改后的结果
+  xh.tmpUpdatedSrc && xh.tmpUpdatedSrc.content && (xh.submitCol.content = Object.assign(xh.submitCol.content, xh.tmpUpdatedSrc.content));
+  xh.tmpUpdatedSrc && xh.tmpUpdatedSrc.metaContent && (xh.submitCol.metaContent = Object.assign(xh.submitCol.metaContent, xh.tmpUpdatedSrc.metaContent));
 }
 
 xh.setAreaCreateNested = function (area, data) {
@@ -3106,16 +3133,17 @@ xh.Bar.prototype.setNeedPresetData = function () {
 
 // * 预览css selector合集
 xh.Bar.prototype.previewCssRuleCol = function () {
-  if (Object.keys(xh.areaCreated).length > 0) {
-    xh.setPreviewIns();
-  } else {
-    xh.setElMessage({
-      type: 'warning',
-      showClose: true,
-      duration: 2000,
-      message: '暂无数据，请先添加数据'
-    });
-  }
+  xh.setPreviewIns();
+  // if (Object.keys(xh.areaCreated).length > 0) {
+  //   xh.setPreviewIns();
+  // } else {
+  //   xh.setElMessage({
+  //     type: 'warning',
+  //     showClose: true,
+  //     duration: 2000,
+  //     message: '暂无数据，请先添加数据'
+  //   });
+  // }
 }
 
 // * 删除已保存的css selector集合

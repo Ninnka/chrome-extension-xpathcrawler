@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cancel').addEventListener('click', cancel);
   document.getElementById('status').addEventListener('click', switchStatus);
   document.querySelector('#selectRule').addEventListener('click', openTableDialog);
-  document.querySelector('#modifyData').addEventListener('click', openModifyDataDialog);
+  // document.querySelector('#modifyData').addEventListener('click', openModifyDataDialog);
   document.querySelector('#modifyBaseUrl').addEventListener('click', openModufyBaseUrlDialog);
   document.querySelector('#getPresetDataOnly').addEventListener('click', getPresetDataOnly);
   document.querySelector('#needPresetData').addEventListener('click', needPresetData);

@@ -302,6 +302,7 @@ img.xh-highlight {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 999;
 }
 /* .react-json-view {
   height: 600px;
@@ -315,8 +316,11 @@ img.xh-highlight {
   /* height: 600px;
   width: 600px; */
   /* box-sizing: border-box; */
+  box-shadow: rgba(0, 0, 0, 0.3) 0px 1px 3px;
+  border-radius: 5px;
   background-color: #fbfbfb;
   overflow: auto;
+  transform: translateZ(3px);
 }
 .c-modify-content-main {
   height: 700px;
