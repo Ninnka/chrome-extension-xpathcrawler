@@ -17,7 +17,8 @@ const typeList = {
   getPresetDataOnly: 'getPresetDataOnly',
   needPresetData: 'needPresetData',
   needlessPresetData: 'needlessPresetData',
-  modifyContent: 'modifyContent'
+  modifyContent: 'modifyContent',
+  modifyRule: 'modifyRule'
 }
 
 // 监听是否开启或关闭状态
@@ -111,6 +112,11 @@ function modifyContent () {
   sendMessage_(typeList.modifyContent);
 }
 
+// * 修改规则
+function modifyRule () {
+  sendMessage_(typeList.modifyRule);
+}
+
 // 为按钮添加点击事件
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('submit').addEventListener('click', messageBox);
@@ -123,4 +129,5 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('#needPresetData').addEventListener('click', needPresetData);
   document.querySelector('#needlessPresetData').addEventListener('click', needlessPresetData);
   document.querySelector('#modifyContent').addEventListener('click', modifyContent);
+  document.querySelector('#modifyRule').addEventListener('click', modifyRule);
 });

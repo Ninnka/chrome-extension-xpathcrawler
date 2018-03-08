@@ -292,7 +292,7 @@ img.xh-highlight {
 }
 
 /* 修改内容窗口 */
-.c-modify-content-modal-wrapper {
+.c-modify-content-modal-wrapper,.c-modify-rule-modal-wrapper {
   position: fixed;
   top: 0;
   left: 0;
@@ -312,7 +312,7 @@ img.xh-highlight {
   background-color: #fbfbfb;
   overflow: auto;
 } */
-.c-modify-content-modal {
+.c-modify-content-modal,.c-modify-rule-modal {
   /* height: 600px;
   width: 600px; */
   /* box-sizing: border-box; */
@@ -322,7 +322,7 @@ img.xh-highlight {
   overflow: auto;
   transform: translateZ(3px);
 }
-.c-modify-content-main {
+.c-modify-content-main,.c-modify-rule-main {
   height: 700px;
   width: 700px;
   padding: 0 24px;

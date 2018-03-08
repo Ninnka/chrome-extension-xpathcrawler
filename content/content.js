@@ -81,12 +81,15 @@ xh.currentMetaRowSelected = null; // * 外部保存的选择行
  * true 不需要获取
  * false 需要获取
  */
-xh.needlessPresetData = true;
+xh.needlessPresetData = false;
 
 xh.modifyContentWrapper = null; // * react-json-view的实例容器
 xh.reactJsonViewIns = null; // * react-json-view的实例
 
 xh.tmpUpdatedSrc = null;
+
+xh.modifyRuleWrapper = null; // * 修改rule的react实例容器
+xh.modifyRuleJsonViewIns = null; // * 修改Rule规则的react实例
 
 /**
  * 测试数据：start
@@ -97,7 +100,26 @@ xh.presetData = {
 		"id": 1,
     "pattern": "^http://www.baidu.com/news/\\d{10}\\.html$",
 		"pattern_type": 0,
-		"description": "说明"
+    "description": "说明",
+    "selectors": [{
+        "id": 0,
+        "name": "string",
+        "content": {},
+        "metaContent": {},
+        "ruleId": 0,
+        "metaId": 0,
+        "createdAt": "string",
+        "updatedAt": "string"
+    }, {
+        "id": 1,
+        "name": "string",
+        "content": {},
+        "metaContent": {},
+        "ruleId": 1,
+        "metaId": 1,
+        "createdAt": "string",
+        "updatedAt": "string"
+    }]
 	}, {
     "id": 2,
     "pattern": "^https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects$",
@@ -953,6 +975,156 @@ xh.mdDataRequest = function () {
 
 // -------------------------------------------------------------
 
+// * 设置修改规则的弹窗
+xh.setModifyRuleModal = function () {
+  if (xh.modifyRuleJsonViewIns) {
+    xh.showModifyRuleModal();
+    xh.reactRenderRuleIns.setState({
+      src: xh.getRulesSelectors()
+    });
+  } else {
+    xh.modifyRuleWrapper = document.createElement('div');
+    xh.modifyRuleWrapper.id = 'c-modify-rule-modal-wrapper';
+    xh.modifyRuleWrapper.classList.add('c-modify-rule-modal-wrapper');
+    let tmpContentLayer = document.createElement('div');
+    tmpContentLayer.id = 'c-modify-rule-modal';
+    tmpContentLayer.classList.add('c-modify-rule-modal');
+    const tmpContentLayerHeader = `
+      <div class="content-layer--header">
+        <div id="close-btn-layer--header" class="close-btn-layer--header">
+          <span id="close-btn-main" class="close-btn-main">X</span>
+        </div>
+        <div id="c-modify-rule-main" class="c-modify-rule-main"></div>
+        <div id="sure-btn-layer--header" class="sure-btn-layer--header">确认</div>
+      </div>
+    `
+    tmpContentLayer.innerHTML = tmpContentLayerHeader;
+    xh.modifyRuleWrapper.appendChild(tmpContentLayer);
+    if (xh.docuBody === null) {
+      xh.docuBody = document.querySelector('body');
+    }
+    xh.docuBody.appendChild(xh.modifyRuleWrapper);
+    // * 绑定关闭按钮事件
+    document.querySelector('#c-modify-rule-modal-wrapper #close-btn-main').addEventListener('click', (e) => {
+      e.stopPropagation();
+      xh.hideModifyRuleModal();
+    });
+    // * 绑定确认按钮事件
+    document.querySelector('#c-modify-rule-modal-wrapper #sure-btn-layer--header').addEventListener('click', (e) => {
+      e.stopPropagation();
+      // TODOS 确认修改规则
+    });
+    xh.createModifyRuleModal();
+    console.log('xh.modifyRuleJsonViewIns', xh.modifyRuleJsonViewIns);
+  }
+}
+
+// * 创建修改规则的弹窗
+xh.createModifyRuleModal = function () {
+  xh.modifyRuleJsonViewIns = React.createElement(reactJsonView.default, {
+    src: xh.getRulesSelectors(),
+    collapseStringsAfterLength: 18,
+    onEdit: async (edit) => {
+      console.log('rule edit', edit);
+      if (edit.name !== 'id' && edit.namespace.length === 3 && !isNaN(Number(edit.namespace[2]))) {
+        let selectorPointer = edit.updated_src;
+        for (let item of edit.namespace) {
+          selectorPointer = selectorPointer[item]
+        }
+        // TODOS 请求修改
+        try {
+          const { id: selectorId } = selectorPointer;
+          const res = await httpLib.modifySelector({
+            selectorId,
+            selector: {
+              name: selectorPointer.name,
+              content: {
+                ...selectorPointer.content
+              },
+              metaContent: {
+                ...selectorPointer.metaContent
+              },
+              ruleId: selectorPointer.ruleId,
+              metaId: selectorPointer.metaId
+            }
+          })
+          xh.updatePresetDataRules(edit.updated_src);
+          xh.setElMessage({
+            message: '修改成功',
+            duration: 2000,
+            type: 'success'
+          });
+          return true;
+        } catch (err) {
+          console.log('[async modifySelector err]', err);
+          return false;
+        }
+      } else {
+        xh.setElMessage({
+          duration: 2000,
+          message: '不能修改id',
+          type: 'error'
+        });
+        return false;
+      }
+    },
+    onDelete: async (del) => {
+      console.log('rule del', del);
+      if (!isNaN(Number(del.name)) && del.namespace.length === 2 && del.namespace[1] === 'selectors') {
+        // TODOS 请求删除
+        try {
+          const { id: selectorId } = del.existing_value;
+          await httpLib.deleteSelector({
+            selectorId
+          });
+          xh.setElMessage({
+            message: '修改成功',
+            duration: 2000,
+            type: 'success'
+          });
+          xh.updatePresetDataRules(del.updated_src);
+        } catch (err) {
+          console.log('[async deleteSelector err]', err);
+          return false;
+        }
+      } else {
+        xh.setElMessage({
+          duration: 2000,
+          message: '无法删除该属性',
+          type: 'error'
+        });
+        return false;
+      }
+    }
+  });
+  React && ReactDOM && (xh.reactRenderRuleIns = ReactDOM.render(
+    xh.modifyRuleJsonViewIns,
+    document.getElementById('c-modify-rule-main')
+  ));
+}
+
+xh.showModifyRuleModal = function () {
+  if (xh.modifyRuleJsonViewIns) {
+    xh.modifyRuleWrapper.style.display = 'flex';
+  }
+}
+
+xh.hideModifyRuleModal = function () {
+  if (xh.modifyRuleJsonViewIns) {
+    xh.modifyRuleWrapper.style.display = 'none';
+  }
+}
+
+xh.getRulesSelectors = function () {
+  return xh.presetData.rules;
+}
+
+xh.updatePresetDataRules = function (newRules) {
+  xh.presetData.rules = newRules;
+}
+
+// -------------------------------------------------------------
+
 // * 修改内容相关
 xh.setModifyContentModal = function () {
   xh.setSubmitCol();
@@ -984,12 +1156,12 @@ xh.setModifyContentModal = function () {
     }
     xh.docuBody.appendChild(xh.modifyContentWrapper);
     // * 绑定关闭按钮事件
-    document.querySelector('#close-btn-main').addEventListener('click', (e) => {
+    document.querySelector('#c-modify-content-modal-wrapper #close-btn-main').addEventListener('click', (e) => {
       e.stopPropagation();
       xh.hideModifyContentModal();
     });
     // * 绑定确认按钮事件
-    document.querySelector('#sure-btn-layer--header').addEventListener('click', (e) => {
+    document.querySelector('#c-modify-content-modal-wrapper #sure-btn-layer--header').addEventListener('click', (e) => {
       e.stopPropagation();
       xh.confirmModifyContentData();
     });
@@ -2685,7 +2857,8 @@ xh.specClassNameList = [
   'c-base-url-form',
   'order-adjust-table-wrapper',
   'c-order-adjust-table-wrapper',
-  'c-modify-content-modal-wrapper'
+  'c-modify-content-modal-wrapper',
+  'c-modify-rule-modal-wrapper'
 ];
 
 // * 包含白名单中的类名
@@ -3045,6 +3218,9 @@ xh.Bar.prototype.handleRequest_ = function(request, sender, cb) {
     case 'modifyContent':
       this.openModifyContentDialog();
       break;
+    case 'modifyRule':
+      this.openModifyRuleDialog();
+      break;
     default:
       break;
   }
@@ -3195,6 +3371,11 @@ xh.Bar.prototype.openModifyContentDialog = function () {
   xh.setModifyContentModal();
 }
 
+// * 打开修改规则的modal
+xh.Bar.prototype.openModifyRuleDialog = function () {
+  xh.setModifyRuleModal();
+}
+
 // * 打开修改服务器地址的form dialog
 xh.Bar.prototype.openModufyBaseUrlDialog = function () {
   xh.setMdBaseUrlForm();
@@ -3319,6 +3500,7 @@ xh.Bar.prototype.mouseClick_ = function (e) {
     if (
       domPath[i]
       && domPath[i].id
+      && domPath[i].id.indexOf
       && (domPath[i].id.indexOf('c-input-box') !== -1 || domPath[i].id.indexOf('c-preview-wrapper') !== -1)
     ) {
       // * id中有c-input-box

@@ -20,7 +20,7 @@ let axiosInstance = axios.create({
 axiosInstance.defaults.headers.common['X-Custom-Header'] = 'foobar';
 // axiosInstance.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
 
-axiosInstance.defaults.baseURL = 'http://10.0.0.39:10101';
+axiosInstance.defaults.baseURL = 'http://10.0.0.29:10101';
 
 let httpLib = {};
 
@@ -30,7 +30,8 @@ httpLib.getPresetRulesData = function () {
     method: 'get',
     url: '/rules',
     params: {
-      url: window.location.href
+      url: window.location.href,
+      'with-selector': true
     }
   });
 }
@@ -51,3 +52,22 @@ httpLib.submitData = function (data) {
     data
   })
 };
+
+// * 修改selector
+httpLib.modifySelector = function (data) {
+  const { selectorId, selector } = data;
+  return axiosInstance({
+    method: 'put',
+    url: `/selectors/${selectorId}`,
+    data: selector
+  })
+}
+
+// * 删除selector
+httpLib.deleteSelector = function (data) {
+  const { selectorId } = data;
+  return axiosInstance({
+    method: 'delete',
+    url: `/selectors/${selectorId}`
+  })
+}
