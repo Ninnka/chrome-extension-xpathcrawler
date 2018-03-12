@@ -20,7 +20,7 @@ let axiosInstance = axios.create({
 axiosInstance.defaults.headers.common['X-Custom-Header'] = 'foobar';
 // axiosInstance.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
 
-axiosInstance.defaults.baseURL = 'http://10.0.0.29:10101';
+axiosInstance.defaults.baseURL = 'http://120.79.179.56:10101';
 
 let httpLib = {};
 

@@ -1026,14 +1026,19 @@ xh.createModifyRuleModal = function () {
     collapseStringsAfterLength: 18,
     onEdit: async (edit) => {
       console.log('rule edit', edit);
-      if (edit.name !== 'id' && edit.namespace.length === 3 && !isNaN(Number(edit.namespace[2]))) {
+      // if (edit.name !== 'id' && edit.namespace.length === 3 && !isNaN(Number(edit.namespace[2]))) {
         let selectorPointer = edit.updated_src;
-        for (let item of edit.namespace) {
-          selectorPointer = selectorPointer[item]
+        let selectorId = null;
+        for (let i = 0; i < edit.namespace.length; i++) {
+          selectorPointer = selectorPointer[edit.namespace[i]]
+          if (i === 2) {
+            selectorId = selectorPointer.id;
+            break;
+          }
         }
         // TODOS 请求修改
         try {
-          const { id: selectorId } = selectorPointer;
+          // const { id: selectorId } = selectorPointer;
           const res = await httpLib.modifySelector({
             selectorId,
             selector: {
@@ -1059,21 +1064,30 @@ xh.createModifyRuleModal = function () {
           console.log('[async modifySelector err]', err);
           return false;
         }
-      } else {
-        xh.setElMessage({
-          duration: 2000,
-          message: '不能修改id',
-          type: 'error'
-        });
-        return false;
-      }
+      // } else {
+      //   xh.setElMessage({
+      //     duration: 2000,
+      //     message: '不能修改id',
+      //     type: 'error'
+      //   });
+      //   return false;
+      // }
     },
     onDelete: async (del) => {
       console.log('rule del', del);
-      if (!isNaN(Number(del.name)) && del.namespace.length === 2 && del.namespace[1] === 'selectors') {
+      // if (!isNaN(Number(del.name)) && del.namespace.length === 2 && del.namespace[1] === 'selectors') {
+        let selectorPointer = del.updated_src;
+        let selectorId = null;
+        for (let i = 0; i < del.namespace.length; i++) {
+          selectorPointer = selectorPointer[del.namespace[i]]
+          if (i === 2) {
+            selectorId = selectorPointer.id;
+            break;
+          }
+        }
         // TODOS 请求删除
         try {
-          const { id: selectorId } = del.existing_value;
+          // const { id: selectorId } = del.existing_value;
           await httpLib.deleteSelector({
             selectorId
           });
@@ -1087,14 +1101,14 @@ xh.createModifyRuleModal = function () {
           console.log('[async deleteSelector err]', err);
           return false;
         }
-      } else {
-        xh.setElMessage({
-          duration: 2000,
-          message: '无法删除该属性',
-          type: 'error'
-        });
-        return false;
-      }
+      // } else {
+      //   xh.setElMessage({
+      //     duration: 2000,
+      //     message: '无法删除该属性',
+      //     type: 'error'
+      //   });
+      //   return false;
+      // }
     }
   });
   React && ReactDOM && (xh.reactRenderRuleIns = ReactDOM.render(
